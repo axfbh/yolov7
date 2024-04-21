@@ -100,69 +100,74 @@ class DetectionMetric:
         :param widths: 每个 batch 的图片 宽
         :return:
         """
-        output = args[0]
-        target = args[1]
+        outputs = args[0]
+        targets = args[1]
         height = args[2]
         width = args[3]
 
         whwh = torch.tensor([width, height, width, height], device=self.device)
 
-        for i_cls, pred in enumerate(output):
-            # ----------- 选取对应类别的 标签 ----------
-            labels = target[target[:, 0] == i_cls, 1:]
+        for i_cls, pred in enumerate(outputs):
 
-            nl = len(labels)
+            for target in targets:
+                target = target[target[:, 1] > 0]
 
-            # ----------- 取出 类别 标签 ----------
-            tcls = labels[:, 0].tolist() if nl else []
+                # ----------- 选取对应类别的 标签 ----------
+                labels = target[target[:, 0] == i_cls, 1:]
+                labels[:, 0] = labels[:, 0] - 1
 
-            # ----------- 统计 没有预测框，但是 有标签 的情况-----------
-            if pred is None:
+                nl = len(labels)
+
+                # ----------- 取出 类别 标签 ----------
+                tcls = labels[:, 0].tolist() if nl else []
+
+                # ----------- 统计 没有预测框，但是 有标签 的情况-----------
+                if pred is None:
+                    if nl:
+                        self.stats.append((torch.zeros(0, self.niou, dtype=torch.bool),
+                                           torch.Tensor(),
+                                           torch.Tensor(),
+                                           tcls))
+                    continue
+
+                # ---------- 裁剪 预测框 超出 图像大小的部分 -----------
+                clip_coords(pred, (height, width))
+
+                # ---------- 统计 预测正确的情况 -----------
+                correct = torch.zeros(pred.shape[0], self.niou, dtype=torch.bool, device=self.device)
+
                 if nl:
-                    self.stats.append((torch.zeros(0, self.niou, dtype=torch.bool),
-                                       torch.Tensor(),
-                                       torch.Tensor(),
-                                       tcls))
-                continue
+                    # --------- 已经被选取的目标 索引 -----------
+                    detected = []  # target indices
 
-            # ---------- 裁剪 预测框 超出 图像大小的部分 -----------
-            clip_coords(pred, (height, width))
+                    # ------------  取出 类别 标签，保持 tensor 类型------------
+                    tcls_tensor = labels[:, 0]
 
-            # ---------- 统计 预测正确的情况 -----------
-            correct = torch.zeros(pred.shape[0], self.niou, dtype=torch.bool, device=self.device)
+                    # ----------- 将中心值 转换回 xyxy值，并且映射到 image size 大小 -----------
+                    tbox = cxcwh2xy(labels[:, 1:5]) * whwh
 
-            if nl:
-                # --------- 已经被选取的目标 索引 -----------
-                detected = []  # target indices
+                    for cls in torch.unique(tcls_tensor):
+                        # ----------- 取出 标签中 对应类别的索引 -----------
+                        ti = (cls == tcls_tensor).nonzero().view(-1)  # prediction indices
 
-                # ------------  取出 类别 标签，保持 tensor 类型------------
-                tcls_tensor = labels[:, 0]
+                        # ----------- 取出 预测中 对应类别的索引 -----------
+                        pi = (cls == pred[:, 5]).nonzero().view(-1)  # target indices
 
-                # ----------- 将中心值 转换回 xyxy值，并且映射到 image size 大小 -----------
-                tbox = cxcwh2xy(labels[:, 1:5]) * whwh
+                        if pi.shape[0]:
+                            # ----------- 同一个 类别 标签的情况下，哪个预测框和哪个标签框的iou最大，做匹配操作，一对一匹配 ------------
+                            ious, i = bbox_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
 
-                for cls in torch.unique(tcls_tensor):
-                    # ----------- 取出 标签中 对应类别的索引 -----------
-                    ti = (cls == tcls_tensor).nonzero().view(-1)  # prediction indices
+                            # 预测和标签框的 iou 必须大于 0.5
+                            for j in (ious > self.iouv[0]).nonzero():
+                                d = ti[i[j]]
+                                # ----------- 一个真实框 只能匹配 一个预测框，一对一匹配，记录哪个真实框已经匹配了 -----------
+                                if d not in detected:
+                                    detected.append(d)
+                                    correct[pi[j]] = ious[j] > self.iouv  # iou_thres is 1xn
+                                    if len(detected) == nl:  # all targets already located in image
+                                        break
 
-                    # ----------- 取出 预测中 对应类别的索引 -----------
-                    pi = (cls == pred[:, 5]).nonzero().view(-1)  # target indices
-
-                    if pi.shape[0]:
-                        # ----------- 同一个 类别 标签的情况下，哪个预测框和哪个标签框的iou最大，做匹配操作，一对一匹配 ------------
-                        ious, i = bbox_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
-
-                        # 预测和标签框的 iou 必须大于 0.5
-                        for j in (ious > self.iouv[0]).nonzero():
-                            d = ti[i[j]]
-                            # ----------- 一个真实框 只能匹配 一个预测框，一对一匹配，记录哪个真实框已经匹配了 -----------
-                            if d not in detected:
-                                detected.append(d)
-                                correct[pi[j]] = ious[j] > self.iouv  # iou_thres is 1xn
-                                if len(detected) == nl:  # all targets already located in image
-                                    break
-
-            self.stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
+                self.stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
     def ap_per_class(self):
         stats = [np.concatenate(x, 0) for x in zip(*self.stats)]  # to numpy
