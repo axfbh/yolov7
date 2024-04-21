@@ -18,7 +18,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
 
     method = 'merge'  #
 
-    output = [None] * len(prediction)
+    output = [torch.zeros((0, 6 + 0), device=prediction.device)] * len(prediction)
 
     for image_i, pred in enumerate(prediction):
 

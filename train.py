@@ -67,14 +67,14 @@ def train(model, train_loader, val_loader, args):
                                    device=args.train.device,
                                    epoch=epoch,
                                    optimizer=optimizer,
-                                   criterion=YoloLossV7(args, g=1, thresh=4),
+                                   criterion=YoloLossV7(args, g=0.5, thresh=4),
                                    accumulate=accumulate)
 
-        # val_metric = val_epoch(model=model,
-        #                        loader=val_loader,
-        #                        device=args.train.device,
-        #                        epoch=epoch,
-        #                        criterion=YoloLossV3(args, 0.296))
+        val_metric = val_epoch(model=model,
+                               loader=val_loader,
+                               device=args.train.device,
+                               epoch=epoch,
+                               criterion=YoloLossV7(args, g=0.5, thresh=4))
 
         scheduler.step()
 

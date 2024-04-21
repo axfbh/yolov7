@@ -10,7 +10,7 @@ model:
     end: 30 # -1 不解冻
   weights:
     checkpoints: './checkpoints/checkpoint1.pth'
-    resume: './weight/model_epoch_119_loss_2.317961946129799_.pth'
+    resume: './weight/model_epoch_20_loss_7.789403166089739_.pth'
     extra:
       pretrained: None
       bkpretrained: './pretrained/'
@@ -21,10 +21,10 @@ adam:
   betas: [ 0.9, 0.999 ]
 
 sgd:
-  momentum: 0.95
+  momentum: 0.937
 
 solver:
-  lr: 0.001
+  lr: 0.01
   weight_decay: 0.0005
 
 
@@ -35,6 +35,9 @@ warmup:
 
 anchors: [ [ 10,13 ],[ 16,30 ],[ 33,23 ],[ 30,61 ],[ 62,45 ],[ 59,119 ],[ 116,90 ],[ 156,198 ],[ 373,326 ] ]
 
+weight:
+  device: 'cpu'
+
 
 train:
   dataset:
@@ -42,11 +45,9 @@ train:
   batch_size: 16
   device: 'cuda'
 
-weight:
-  device: 'cpu'
-
-
-val_dataset:
+val:
+  dataset:
+    path: 'D:\dataset\VOC2007'
   batch_size: 8
 
 

@@ -59,10 +59,19 @@ def get_loader(args):
         ToTensorV2()
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
 
+    val_transform = A.Compose([
+        ToTensorV2()
+    ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
+
     train_dataset = MyDataSet(args.train.dataset.path,
                               'car_train',
                               args,
                               train_transform)
+
+    val_dataset = MyDataSet(args.val.dataset.path,
+                            'car_val',
+                            args,
+                            val_transform)
 
     nw = min(3, args.train.batch_size, os.cpu_count() // 2 - 6)
 
@@ -74,4 +83,12 @@ def get_loader(args):
                               num_workers=nw,
                               drop_last=True)
 
-    return train_loader, 0
+    val_loader = DataLoader(dataset=val_dataset,
+                            batch_size=args.val.batch_size,
+                            shuffle=False,
+                            collate_fn=detect_collate_fn,
+                            persistent_workers=True,
+                            num_workers=nw,
+                            drop_last=True)
+
+    return train_loader, val_loader
