@@ -6,8 +6,6 @@ import importlib
 from matplotlib import pyplot as plt
 import matplotlib
 
-matplotlib.use('TkAgg')
-
 
 def show(name, img):
     cv2.namedWindow(name, cv2.WINDOW_FREERATIO)
@@ -36,10 +34,6 @@ def visualize(image, bboxes, category_ids, category_id_to_name=None, in_fmt='xyx
         bbox = box_convert(torch.as_tensor(bbox), in_fmt=in_fmt, out_fmt='xyxy').int().numpy()
         img = visualize_bbox(img, bbox, class_name)
     show('ImageWithBox', img)
-    # plt.figure(figsize=(12, 12))
-    # plt.axis('off')
-    # plt.imshow(img)
-    # plt.close()
 
 
 def visualize_bbox(img, bbox, class_name, color=(255, 0, 0), thickness=2):
