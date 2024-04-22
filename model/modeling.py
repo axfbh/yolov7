@@ -1,4 +1,6 @@
 import torch.nn as nn
+import torch
+import math
 from ops.model.misc.elan_conv import ElanH
 from ops.model.neck.spp import SPPCSPC
 from ops.model.neck.panet import PaNet
@@ -7,44 +9,79 @@ from ops.model.misc.rep_conv import RepConv2d
 from ops.model.backbone.elandarknet53 import ElanDarkNet53
 from ops.model.backbone.utils import _elandarknet_extractor
 
-#
-# class Yolov7(nn.Module):
-#     def __init__(self, num_classes):
-#         super().__init__()
-#
-#         self.backbone = _elandarknet_extractor(ElanDarkNet53(), 5)
-#
-#         self.sppcspc = SPPCSPC(1024, 512, activation_layer=nn.SiLU)
-#
-#         self.neck = PaNet([512, 256, 128], ElanH, activation_layer=nn.SiLU)
-#
-#         self.cv1 = RepConv2d(512, 1024)
-#         self.cv2 = RepConv2d(256, 512)
-#         self.cv3 = RepConv2d(128, 256)
-#
-#         self.head = YoloHead([256, 512, 1024], num_classes)
-#
-#     def forward(self, x):
-#         x = self.backbone(x)
-#
-#         p7 = self.sppcspc(x['2'])
-#
-#         sample = [p7, x['1'], x['0']]
-#
-#         p5, p6, p7 = self.neck(sample)
-#
-#         p5 = self.cv3(p5)
-#         p6 = self.cv2(p6)
-#         p7 = self.cv1(p7)
-#
-#         head = self.head([p5, p6, p7])
-#
-#         return head
 
+class YoloV7(nn.Module):
+    def __init__(self, num_anchors, num_classes):
+        super().__init__()
+        phi = 's'
+        depth_dict = {'s': 0.33, 'm': 0.67, 'l': 1.00, 'x': 1.33, }
+        width_dict = {'s': 0.50, 'm': 0.75, 'l': 1.00, 'x': 1.25, }
+        dep_mul, wid_mul = depth_dict[phi], width_dict[phi]
 
-import torch
-import torch.nn as nn
-import math
+        base_channels = int(wid_mul * 64)  # 64
+        base_depth = max(round(dep_mul * 3), 1)  # 3
+        self.backbone = _elandarknet_extractor(ElanDarkNet53(), 5)
+        # self.backbone = CSPDarknet(base_channels, base_depth)
+
+        self.sppcspc = SPPCSPC(1024, 512, activation_layer=nn.SiLU)
+
+        # self.neck = PaNet([512, 256, 128], ElanH, activation_layer=nn.SiLU)
+
+        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+
+        self.conv_for_feat3 = Conv(base_channels * 16, base_channels * 8, 1, 1)
+        self.conv3_for_upsample1 = C3(base_channels * 16, base_channels * 8, base_depth, shortcut=False)
+
+        self.conv_for_feat2 = Conv(base_channels * 8, base_channels * 4, 1, 1)
+        self.conv3_for_upsample2 = C3(base_channels * 8, base_channels * 4, base_depth, shortcut=False)
+
+        self.down_sample1 = Conv(base_channels * 4, base_channels * 4, 3, 2)
+        self.conv3_for_downsample1 = C3(base_channels * 8, base_channels * 8, base_depth, shortcut=False)
+
+        self.down_sample2 = Conv(base_channels * 8, base_channels * 8, 3, 2)
+        self.conv3_for_downsample2 = C3(base_channels * 16, base_channels * 16, base_depth, shortcut=False)
+
+        # self.cv1 = RepConv2d(512, 1024)
+        # self.cv2 = RepConv2d(256, 512)
+        # self.cv3 = RepConv2d(128, 256)
+
+        self.cov1 = nn.Conv2d(1024, 256, 1, 1, 0)
+        self.cov2 = nn.Conv2d(512, 128, 1, 1, 0)
+
+        self.head = YoloHead([128, 256, 512], num_anchors, num_classes)
+
+    def forward(self, x):
+        x = self.backbone(x)
+
+        feat1, feat2, feat3 = x['0'], x['1'], x['2']
+
+        feat3 = self.sppcspc(feat3)
+
+        # sample = [feat3, feat2, feat1]
+
+        # P3, P4, P5 = self.neck(sample)
+
+        P5 = self.conv_for_feat3(feat3)
+        P5_upsample = self.upsample(P5)
+        P4 = torch.cat([P5_upsample, self.cov1(feat2)], 1)
+        P4 = self.conv3_for_upsample1(P4)
+
+        P4 = self.conv_for_feat2(P4)
+        P4_upsample = self.upsample(P4)
+        P3 = torch.cat([P4_upsample, self.cov2(feat1)], 1)
+        P3 = self.conv3_for_upsample2(P3)
+
+        P3_downsample = self.down_sample1(P3)
+        P4 = torch.cat([P3_downsample, P4], 1)
+        P4 = self.conv3_for_downsample1(P4)
+
+        P4_downsample = self.down_sample2(P4)
+        P5 = torch.cat([P4_downsample, P5], 1)
+        P5 = self.conv3_for_downsample2(P5)
+
+        head = self.head([P3, P4, P5])
+
+        return head
 
 
 class SiLU(nn.Module):
@@ -195,7 +232,7 @@ class CSPDarknet(nn.Module):
 
 
 class YoloBody(nn.Module):
-    def __init__(self, anchors_num, num_classes, phi):
+    def __init__(self, num_anchors, num_classes, phi):
         super(YoloBody, self).__init__()
         depth_dict = {'s': 0.33, 'm': 0.67, 'l': 1.00, 'x': 1.33, }
         width_dict = {'s': 0.50, 'm': 0.75, 'l': 1.00, 'x': 1.25, }
@@ -231,9 +268,9 @@ class YoloBody(nn.Module):
         self.down_sample2 = Conv(base_channels * 8, base_channels * 8, 3, 2)
         self.conv3_for_downsample2 = C3(base_channels * 16, base_channels * 16, base_depth, shortcut=False)
 
-        self.yolo_head_P3 = nn.Conv2d(base_channels * 4, anchors_num * (5 + num_classes), 1)
-        self.yolo_head_P4 = nn.Conv2d(base_channels * 8, anchors_num * (5 + num_classes), 1)
-        self.yolo_head_P5 = nn.Conv2d(base_channels * 16, anchors_num * (5 + num_classes), 1)
+        self.yolo_head_P3 = nn.Conv2d(base_channels * 4, num_anchors * (5 + num_classes), 1)
+        self.yolo_head_P4 = nn.Conv2d(base_channels * 8, num_anchors * (5 + num_classes), 1)
+        self.yolo_head_P5 = nn.Conv2d(base_channels * 16, num_anchors * (5 + num_classes), 1)
 
         self.reset_parameters()
 
@@ -288,4 +325,5 @@ class YoloBody(nn.Module):
 
 
 def get_model(args):
-    return YoloBody(anchors_num=3, num_classes=args.num_classes, phi='s')
+    # return YoloBody(num_anchors=3, num_classes=args.num_classes, phi='s')
+    return YoloV7(num_anchors=3, num_classes=args.num_classes + 5)

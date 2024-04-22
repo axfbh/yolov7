@@ -17,37 +17,30 @@ class ConvolutionalLayer(nn.Sequential):
 
 
 class YoloHead(nn.Module):
-    def __init__(self, out_channle_list: List, num_classes):
+    def __init__(self, out_channle_list: List, num_anchors, num_classes):
         super(YoloHead, self).__init__()
-        self.head_p5 = nn.Sequential(
-            ConvolutionalLayer(out_channle_list[0], 3),
-            nn.Conv2d(out_channle_list[0], num_classes, 1, 1, 0, bias=False)
-        )
 
-        self.head_p6 = nn.Sequential(
-            ConvolutionalLayer(out_channle_list[1], 3),
-            nn.Conv2d(out_channle_list[1], num_classes, 1, 1, 0, bias=False)
-        )
+        self.cov1 = ConvolutionalLayer(out_channle_list[0], 3)
+        self.cov1 = ConvolutionalLayer(out_channle_list[1], 3)
+        self.cov1 = ConvolutionalLayer(out_channle_list[2], 3)
 
-        self.head_p7 = nn.Sequential(
-            ConvolutionalLayer(out_channle_list[2], 3),
-            nn.Conv2d(out_channle_list[2], num_classes, 1, 1, 0, bias=False)
-        )
+        self.head_p5 = nn.Conv2d(out_channle_list[0], num_anchors * num_classes, 1, 1, 0)
+
+        self.head_p6 = nn.Conv2d(out_channle_list[1], num_anchors * num_classes, 1, 1, 0)
+
+        self.head_p7 = nn.Conv2d(out_channle_list[2], num_anchors * num_classes, 1, 1, 0)
 
         self.reset_parameters()
 
     def reset_parameters(self):
-        for layer in self.head_p5.children():
-            if isinstance(layer, nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, std=0.01)
+        self.head_p5.bias.data[4] += math.log(8 / (640 / 8) ** 2)
+        self.head_p5.bias.data[5:] += math.log(0.6 / (20 - 0.99999))
 
-        for layer in self.head_p6.children():
-            if isinstance(layer, nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, std=0.01)
+        self.head_p6.bias.data[4] += math.log(8 / (640 / 16) ** 2)
+        self.head_p6.bias.data[5:] += math.log(0.6 / (20 - 0.99999))
 
-        for layer in self.head_p7.children():
-            if isinstance(layer, nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, std=0.01)
+        self.head_p7.bias.data[4] += math.log(8 / (640 / 32) ** 2)
+        self.head_p7.bias.data[5:] += math.log(0.6 / (20 - 0.99999))
 
     def forward(self, x: List):
         p5 = self.head_p5(x[0])
