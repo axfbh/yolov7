@@ -88,7 +88,7 @@ class ResizeShortLongest(ResizeBasicTransform):
 
 
 class ResizeLongestPaddingShort(DualTransform):
-    def __init__(self, image_size: List[int], shuffle: bool):
+    def __init__(self, image_size: List[int], shuffle: bool, color=(114, 114, 114)):
         """
         填充边界，防止图像缩放变形，基于短边
         :param shuffle: True 随机填充边界, False 对半填充边界
@@ -98,6 +98,7 @@ class ResizeLongestPaddingShort(DualTransform):
         super(ResizeLongestPaddingShort, self).__init__()
         self.image_size = image_size
         self.shuffle = shuffle
+        self.color = color
 
     def __call__(self,
                  image: np.ndarray,
@@ -128,9 +129,9 @@ class ResizeLongestPaddingShort(DualTransform):
             self.pad_b = self.gap_h - self.pad_t
             self.pad_r = self.gap_w - self.pad_l
 
-        return PaddingImage(self.pad_l, self.pad_t, self.pad_r, self.pad_b)(image=image,
-                                                                            mask=mask,
-                                                                            bbox_params=bbox_params)
+        return PaddingImage(self.pad_l, self.pad_t, self.pad_r, self.pad_b, self.color)(image=image,
+                                                                                        mask=mask,
+                                                                                        bbox_params=bbox_params)
 
 
 if __name__ == '__main__':

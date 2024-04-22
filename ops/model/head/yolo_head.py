@@ -1,6 +1,8 @@
 import torch.nn as nn
 
 from typing import List
+import torch
+import math
 
 
 # 定义卷积层：经过这个层仅变换通道数
@@ -31,6 +33,21 @@ class YoloHead(nn.Module):
             ConvolutionalLayer(out_channle_list[2], 3),
             nn.Conv2d(out_channle_list[2], num_classes, 1, 1, 0, bias=False)
         )
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        for layer in self.head_p5.children():
+            if isinstance(layer, nn.Conv2d):
+                torch.nn.init.normal_(layer.weight, std=0.01)
+
+        for layer in self.head_p6.children():
+            if isinstance(layer, nn.Conv2d):
+                torch.nn.init.normal_(layer.weight, std=0.01)
+
+        for layer in self.head_p7.children():
+            if isinstance(layer, nn.Conv2d):
+                torch.nn.init.normal_(layer.weight, std=0.01)
 
     def forward(self, x: List):
         p5 = self.head_p5(x[0])

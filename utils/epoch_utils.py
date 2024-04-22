@@ -162,7 +162,6 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
     stream = tqdm(loader)
 
     metric = {
-        'loss': AverageMeter(),
         'lbox': AverageMeter(),
         'lobj': AverageMeter(),
         'lcls': AverageMeter(),
@@ -179,9 +178,7 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
 
         loss, lbox, lobj, lcls = criterion(preds, targets.to(device), image_size.to(device))
 
-        ori_loss = loss
-
-        loss = loss / accumulate
+        # loss = loss / accumulate
 
         loss.backward()
 
@@ -189,10 +186,9 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         if (i + 1) % accumulate == 0 or (i + 1) == len(loader):
             optimizer.step()
             optimizer.zero_grad()
-            metric['loss'].update(ori_loss.detach().item())
-            metric['lbox'].update(loss.item())
-            metric['lobj'].update(loss.item())
-            metric['lcls'].update(loss.item())
+            metric['lbox'].update(lbox.item())
+            metric['lobj'].update(lobj.item())
+            metric['lcls'].update(lcls.item())
             metric['lr'] = optimizer.param_groups[0]['lr']
             stream.set_postfix(**metric)
 
@@ -206,9 +202,6 @@ def val_epoch(model, loader, device, epoch, criterion):
     stream = tqdm(loader)
 
     metric = {
-        'lbox': AverageMeter(),
-        'lobj': AverageMeter(),
-        'lcls': AverageMeter(),
         'mp': AverageMeter(),
         'mr': AverageMeter(),
         'map': AverageMeter(),
@@ -222,7 +215,6 @@ def val_epoch(model, loader, device, epoch, criterion):
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
     single_cls = False
-    detect_metric = DetectionMetric(device)
     post_process = YoloPostProcess(device, conf_thres=0.001, iou_thres=0.5)
     tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
@@ -235,12 +227,7 @@ def val_epoch(model, loader, device, epoch, criterion):
 
         _, lbox, lobj, lcls = criterion(train_out, targets.to(device), image_size.to(device))
 
-        metric['lbox'].update(lbox.item())
-        metric['lobj'].update(lobj.item())
-        metric['lcls'].update(lcls.item())
-
         preds = post_process(train_out, criterion.anchors, image_size)
-        detect_metric(preds, targets.to(device), image_size[0], image_size[1])
 
         for si, pred in enumerate(preds):
             for target in targets:
@@ -276,9 +263,7 @@ def val_epoch(model, loader, device, epoch, criterion):
                 mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
             nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
 
-            print(mp, mr, map50, map)
-
-            mp, mr, map50, map = detect_metric.ap_per_class()
-            print(mp, mr, map50, map)
+            print('mp', 'mr', 'map50', 'map')
+            print(round(mp, 3), round(mr, 3), round(map50, 3), round(map, 3))
 
     return metric

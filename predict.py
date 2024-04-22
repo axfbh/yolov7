@@ -79,8 +79,7 @@ def predict(model, args):
                                       (0, 255, 0), 1)
                         cv2.putText(images[i],
                                     id2name.get(p[5].item() + 1),
-                                    tuple(
-                                        p[:2].cpu().int().numpy().copy() + np.array([-5, -5])),
+                                    tuple(p[:2].cpu().int().numpy().copy() + np.array([-5, -5])),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     0.65,
                                     (0, 0, 255), 2)

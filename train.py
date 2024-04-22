@@ -18,9 +18,9 @@ def setup(args):
 
 
 def train(model, train_loader, val_loader, args):
-    batch_size = args.train.batch_size
+    nb = args.train.batch_size
     nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / batch_size), 1)
+    accumulate = max(round(nbs / nb), 1)
 
     # -------- 梯度优化器 --------
     optimizer = torch.optim.SGD(model.parameters(),
@@ -79,7 +79,7 @@ def train(model, train_loader, val_loader, args):
         scheduler.step()
 
         save_model(model, optimizer, train_metric)
-        history_loss.append(train_metric['loss'].avg,
+        history_loss.append(train_metric['lbox'].avg,
                             0)
         history_loss.loss_plot(start=start_epoch)
 

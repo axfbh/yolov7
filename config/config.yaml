@@ -41,20 +41,20 @@ weight:
 
 train:
   dataset:
-    path: 'D:\dataset\VOC2007'
-  batch_size: 16
+    path: 'D:\cgm\dataset\VOC2007'
+  batch_size: 12
   device: 'cuda'
 
 val:
   dataset:
-    path: 'D:\dataset\VOC2007'
+    path: 'D:\cgm\dataset\VOC2007'
   batch_size: 8
 
 
 test:
   dataset:
     path: './data/voctest.txt'
-    root: 'D:\dataset\VOC2007\JPEGImages'
+    root: 'D:\cgm\dataset\VOC2007\JPEGImages'
   batch_size: 5
   device: 'cuda'
 

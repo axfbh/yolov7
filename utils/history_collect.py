@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 
 
 def save_model(model, optimizer, metric):
-    loss = metric['loss'].avg
+    loss = metric['lbox'].avg
     epoch = metric['epoch']
     path = f'./weight/model_epoch_{epoch}_loss_{loss}_.pth'
     save_dict = {

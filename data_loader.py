@@ -27,7 +27,7 @@ class MyDataSet(VOCDetection):
 
         sample = self.transform(image=resize_sample['image'], bboxes=resize_sample['bbox_params'], classes=classes)
 
-        image = sample['image']
+        image = ToTensorV2()(image=sample['image'])['image']
         bbox_params = torch.FloatTensor(sample['bboxes'])
         classes = torch.LongTensor(sample['classes'])[:, None]
 
@@ -48,19 +48,21 @@ class MyDataSet(VOCDetection):
 
 def get_loader(args):
     train_transform = A.Compose([
-        A.HorizontalFlip(p=0.3),
-        A.OneOf([
-            A.MotionBlur(p=0.2),  # 使用随机大小的内核将运动模糊应用于输入图像。
-            A.MedianBlur(blur_limit=3, p=0.1),  # 中值滤波
-            A.Blur(blur_limit=3, p=0.1),  # 使用随机大小的内核模糊输入图像。
-        ], p=0.2),
-        A.RandomBrightnessContrast(p=0.3),
-        A.RGBShift(r_shift_limit=30, g_shift_limit=30, b_shift_limit=30, p=0.3),
-        ToTensorV2()
+        A.HorizontalFlip(p=0.5),
+        A.RandomResizedCrop(height=args.image_size[0],
+                            width=args.image_size[1],
+                            scale=(0.8, 1.0),
+                            ratio=(0.9, 1.11),
+                            p=0.0),
+        A.Blur(p=0.01),
+        A.MedianBlur(p=0.01),
+        A.ToGray(p=0.01),
+        A.CLAHE(p=0.01),
+        A.HueSaturationValue(),
+        A.Affine(scale=0.1, shear=10, rotate=90, cval=(114, 114, 114)),
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
 
     val_transform = A.Compose([
-        ToTensorV2()
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
 
     train_dataset = MyDataSet(args.train.dataset.path,
@@ -73,7 +75,7 @@ def get_loader(args):
                             args,
                             val_transform)
 
-    nw = min(3, args.train.batch_size, os.cpu_count() // 2 - 6)
+    nw = min(3, args.train.batch_size)
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=args.train.batch_size,
