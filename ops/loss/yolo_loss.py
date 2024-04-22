@@ -274,6 +274,10 @@ class YoloLossV7(YoloLoss):
         self.g = g
         self.balance = [4.0, 1.0, 0.4]
 
+        # Define criteria
+        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
+        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
+
     def build_targets(self, targets, grids, image_size):
         """
 
@@ -320,14 +324,14 @@ class YoloLossV7(YoloLoss):
                                   cls - identity,
                                   cx - identity,
                                   cy - identity,
-                                  cx - x,
-                                  cy - y,
+                                  (cx - x).long(),
+                                  (cy - y).long(),
                                   gw - identity,
                                   gh - identity],
                                  -1)
 
                 j = torch.bitwise_and(0 <= tb[..., 4:6], tb[..., 4:6] < ng[[1, 0]]).all(-1)
-                tb = tb[j]
+                tb = tb[j].unique(dim=0)
 
                 # gxy = tb[..., 2:4]
                 # gxi = ng[[1, 0]] - gxy
@@ -378,8 +382,7 @@ class YoloLossV7(YoloLoss):
     def forward(self, preds, targets, image_size):
         grids = [torch.as_tensor(pi.shape[-2:], device=self.device) for pi in preds]
 
-        BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
-        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
+        bs = preds[0].shape[0]
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lbox = torch.zeros(1, dtype=torch.float32, device=self.device)
@@ -415,14 +418,15 @@ class YoloLossV7(YoloLoss):
                 if self.num_classes > 1:
                     t = torch.full_like(ps[:, 5:], self.cn)  # targets
                     t[range(nb), tcls[i] - 1] = self.cp
-                    lcls += BCEcls(ps[:, 5:], t)
+                    lcls += self.BCEcls(ps[:, 5:], t)
 
-            lobj += BCEobj(pi[..., 4], tobj) * self.balance[i]
+            obji = self.BCEobj(pi[..., 4], tobj)
+            lobj += obji * self.balance[i]  # obj loss
 
-        lbox *= 3.54
-        lobj *= 64.3
-        lcls *= 37.4
+        lbox *= 0.05
+        lobj *= 1
+        lcls *= 0.125
 
-        loss = lbox + lobj + lcls
+        loss = (lbox + lobj + lcls) * bs
 
         return loss, lbox.detach(), lobj.detach(), lcls.detach()

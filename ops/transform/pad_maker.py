@@ -1,10 +1,12 @@
 import numpy as np
 from ops.transform.basic_transform import DualTransform
+import cv2
 
 
 class PaddingImage(DualTransform):
-    def __init__(self, pad_l: int, pad_t: int, pad_r: int, pad_b: int):
+    def __init__(self, pad_l: int, pad_t: int, pad_r: int, pad_b: int, color=(114, 114, 114)):
         super(PaddingImage, self).__init__()
+        self.color = color
         self.pad_b = pad_b
         self.pad_r = pad_r
         self.pad_t = pad_t
@@ -28,7 +30,8 @@ class PaddingImage(DualTransform):
     def apply(self, image: np.ndarray):
         image = image.copy()
 
-        image = np.pad(image, ((self.pad_t, self.pad_b), (self.pad_l, self.pad_r), (0, 0)))
+        image = cv2.copyMakeBorder(image, self.pad_t, self.pad_b, self.pad_l, self.pad_r, cv2.BORDER_CONSTANT,
+                                   value=self.color)
 
         return image
 
