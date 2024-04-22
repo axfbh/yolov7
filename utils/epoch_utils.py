@@ -178,8 +178,6 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
 
         loss, lbox, lobj, lcls = criterion(preds, targets.to(device), image_size.to(device))
 
-        # loss = loss / accumulate
-
         loss.backward()
 
         # ------------- 梯度累积 -------------
@@ -230,30 +228,30 @@ def val_epoch(model, loader, device, epoch, criterion):
         preds = post_process(train_out, criterion.anchors, image_size)
 
         for si, pred in enumerate(preds):
-            for target in targets:
-                target = target[target[:, 1] > 0].to(device)
-                labels = target[target[:, 0] == si, 1:]
-                labels[:, 0] = labels[:, 0] - 1
-                nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
-                correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
-                seen += 1
+            target = targets[si]
+            target = target[target[:, 1] > 0].to(device)
+            labels = target[target[:, 0] == si, 1:]
+            labels[:, 0] = labels[:, 0] - 1
+            nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
+            correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
+            seen += 1
 
-                if npr == 0:
-                    if nl:
-                        stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
-                    continue
-
-                if single_cls:
-                    pred[:, 5] = 0
-
-                predn = pred.clone()
-
+            if npr == 0:
                 if nl:
-                    tbox = box_convert(labels[:, 1:5], 'cxcywh', 'xyxy')  # target boxes
-                    labelsn = torch.cat((labels[:, 0:1], tbox), 1)
-                    correct = process_batch(predn, labelsn, iouv)
+                    stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
+                continue
 
-                stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
+            if single_cls:
+                pred[:, 5] = 0
+
+            predn = pred.clone()
+
+            if nl:
+                tbox = box_convert(labels[:, 1:5], 'cxcywh', 'xyxy')  # target boxes
+                labelsn = torch.cat((labels[:, 0:1], tbox), 1)
+                correct = process_batch(predn, labelsn, iouv)
+
+            stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
         if (i + 1) == len(loader):
             stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy

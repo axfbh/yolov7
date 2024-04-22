@@ -49,17 +49,12 @@ class MyDataSet(VOCDetection):
 def get_loader(args):
     train_transform = A.Compose([
         A.HorizontalFlip(p=0.5),
-        A.RandomResizedCrop(height=args.image_size[0],
-                            width=args.image_size[1],
-                            scale=(0.8, 1.0),
-                            ratio=(0.9, 1.11),
-                            p=0.0),
         A.Blur(p=0.01),
         A.MedianBlur(p=0.01),
         A.ToGray(p=0.01),
         A.CLAHE(p=0.01),
         A.HueSaturationValue(),
-        A.Affine(scale=0.1, shear=10, rotate=90, cval=(114, 114, 114)),
+        A.Affine(scale=0.1, shear=10, rotate=90, cval=114),
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
 
     val_transform = A.Compose([
