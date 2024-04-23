@@ -65,10 +65,6 @@ class YoloPostProcess(PostProcess):
             # Compute conf : conf = obj_conf * cls_conf
             io[..., 5:] *= io[..., 4:5]
 
-            cls_scores, _ = torch.max(io[..., 5:], dim=-1)
-
-            io[..., 4] = cls_scores
-
             io = io.view(bs, -1, nc)
 
             inf_out.append(io)
