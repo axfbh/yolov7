@@ -86,5 +86,4 @@ class YoloV7(nn.Module):
 
 
 def get_model(args):
-    # return YoloBody(num_anchors=3, num_classes=args.num_classes, phi='m')
     return YoloV7(num_anchors=3, num_classes=args.num_classes, phi='l')
