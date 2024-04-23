@@ -333,18 +333,6 @@ class YoloLossV7(YoloLoss):
                 j = torch.bitwise_and(0 <= tb[..., 4:6], tb[..., 4:6] < ng[[1, 0]]).all(-1)
                 tb = tb[j].unique(dim=0)
 
-                # gxy = tb[..., 2:4]
-                # gxi = ng[[1, 0]] - gxy
-                # gxy % 1. < self.g，获得如下值
-                # j：左格左上角
-                # k：上格左上角
-                # j, k = ((gxy % 1. < self.g) & (gxy > 1.)).unbind(-1)
-                # gxi % 1. < self.g，获得如下值
-                # l：右格左上角
-                # m：下格左上角
-                # l, m = ((gxi % 1. < self.g) & (gxi > 1.)).unbind(-1)
-                # tb = tb[j]
-
                 ai = torch.arange(na, device=self.device).view(na, 1).repeat(1, len(tb))
 
                 tb = torch.cat((tb.repeat(na, 1, 1), ai[:, :, None]), 2)
