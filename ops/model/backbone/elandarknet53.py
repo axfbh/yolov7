@@ -2,19 +2,45 @@ import torch
 from torchvision.ops.misc import Conv2dNormActivation
 from functools import partial
 import torch.nn as nn
-from ops.model.misc.elan_conv import Elan
 
 CBS = partial(Conv2dNormActivation, bias=False, inplace=False, norm_layer=nn.BatchNorm2d, activation_layer=nn.SiLU)
 
 
+class Elan(nn.Module):
+    def __init__(self, c1, c2, c3, n=4, e=1, ids=[0]):
+        super(Elan, self).__init__()
+        c_ = int(c2 * e)
+
+        self.ids = ids
+        self.cv1 = CBS(c1, c_, 1, 1)
+        self.cv2 = CBS(c1, c_, 1, 1)
+
+        self.cv3 = nn.ModuleList(
+            [CBS(c_ if i == 0 else c2, c2, 3, 1) for i in range(n)]
+        )
+
+        self.cv4 = CBS(c_ * 2 + c2 * (len(ids) - 2), c3, 1, 1)
+
+    def forward(self, x):
+        x_1 = self.cv1(x)
+        x_2 = self.cv2(x)
+
+        x_all = [x_1, x_2]
+        for i in range(len(self.cv3)):
+            x_2 = self.cv3[i](x_2)
+            x_all.append(x_2)
+
+        out = self.cv4(torch.cat([x_all[id] for id in self.ids], 1))
+        return out
+
+
 class MP1(nn.Module):
-    def __init__(self, in_ch, expand_ratio=0.5):
+    def __init__(self, c1, c2):
         super(MP1, self).__init__()
-        mid_ch = int(in_ch * expand_ratio)
         self.maxpool = nn.MaxPool2d(2, 2)
-        self.cv1 = CBS(in_ch, mid_ch, 1)
-        self.cv2 = nn.Sequential(CBS(in_ch, mid_ch, 1),
-                                 CBS(mid_ch, mid_ch, 3, 2))
+        self.cv1 = CBS(c1, c2, 1)
+        self.cv2 = nn.Sequential(CBS(c1, c2, 1),
+                                 CBS(c2, c2, 3, 2))
 
     def forward(self, x):
         x1 = self.maxpool(x)
@@ -27,24 +53,34 @@ class MP1(nn.Module):
 
 
 class ElanDarkNet53(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, transition_channels, block_channels, n, phi, num_classes=1000):
         super(ElanDarkNet53, self).__init__()
 
-        self.stem = nn.Sequential(CBS(3, 32, 3),
-                                  CBS(32, 64, 3, 2),
-                                  CBS(64, 64, 3))
+        ids = {
+            'l': [-1, -3, -5, -6],
+            'x': [-1, -3, -5, -7, -8],
+        }[phi]
 
-        self.stage1 = nn.Sequential(CBS(64, 128, 3, 2),
-                                    Elan(128, 256))
+        self.stem = nn.Sequential(
+            CBS(3, transition_channels, 3),
+            CBS(transition_channels, transition_channels * 2, 3, 2),
+            CBS(transition_channels * 2, transition_channels * 2, 3))
 
-        self.stage2 = nn.Sequential(MP1(256),
-                                    Elan(256, 512))
+        self.stage1 = nn.Sequential(
+            CBS(transition_channels * 2, transition_channels * 4, 3, 2),
+            Elan(transition_channels * 4, block_channels * 2, transition_channels * 8, n=n, ids=ids))
 
-        self.stage3 = nn.Sequential(MP1(512),
-                                    Elan(512, 1024))
+        self.stage2 = nn.Sequential(
+            MP1(transition_channels * 8, transition_channels * 4),
+            Elan(transition_channels * 8, block_channels * 4, transition_channels * 16, n=n, ids=ids))
 
-        self.stage4 = nn.Sequential(MP1(1024),
-                                    Elan(1024, 1024))
+        self.stage3 = nn.Sequential(
+            MP1(transition_channels * 16, transition_channels * 8),
+            Elan(transition_channels * 16, block_channels * 8, transition_channels * 32, n=n, ids=ids))
+
+        self.stage4 = nn.Sequential(
+            MP1(transition_channels * 32, transition_channels * 16),
+            Elan(transition_channels * 32, block_channels * 8, transition_channels * 32, n=n, ids=ids))
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(1024, num_classes)
