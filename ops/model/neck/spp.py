@@ -17,7 +17,7 @@ class SPP(nn.Module):
 
 
 class SPPCSPC(nn.Module):
-    def __init__(self, in_ch, out_ch, expand_ratio=0.5, ksizes=(5, 9, 13), activation_layer=nn.ReLU):
+    def __init__(self, c1, c2, expand_ratio=0.5, ksizes=(5, 9, 13), activation_layer=nn.ReLU):
         super(SPPCSPC, self).__init__()
 
         CBS = partial(Conv2dNormActivation,
@@ -26,24 +26,24 @@ class SPPCSPC(nn.Module):
                       norm_layer=nn.BatchNorm2d,
                       activation_layer=activation_layer)
 
-        mid_ch = int(2 * out_ch * expand_ratio)
+        c_ = int(2 * c2 * expand_ratio)
 
         self.cv1 = nn.Sequential(
-            CBS(in_ch, mid_ch, 1),
-            CBS(mid_ch, mid_ch, 3),
-            CBS(mid_ch, mid_ch, 1),
+            CBS(c1, c_, 1),
+            CBS(c_, c_, 3),
+            CBS(c_, c_, 1),
         )
 
         self.spp = SPP(ksizes)
 
         self.cv2 = nn.Sequential(
-            CBS(mid_ch * 4, mid_ch, 1),
-            CBS(mid_ch, mid_ch, 3),
+            CBS(c_ * 4, c_, 1),
+            CBS(c_, c_, 3),
         )
 
-        self.cv3 = CBS(in_ch, mid_ch, 1)
+        self.cv3 = CBS(c1, c_, 1)
 
-        self.cv4 = CBS(mid_ch * 2, out_ch, 1)
+        self.cv4 = CBS(c_ * 2, c2, 1)
 
     def forward(self, x):
         x1 = self.cv1(x)

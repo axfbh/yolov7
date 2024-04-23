@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import math
 from ops.model.neck.spp import SPPCSPC
 from ops.model.head.yolo_head import YoloHead
 from ops.model.misc.rep_conv import RepConv2d
@@ -24,8 +23,6 @@ class YoloV7(nn.Module):
         self.sppcspc = SPPCSPC(transition_channels * 32, transition_channels * 16, activation_layer=nn.SiLU)
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-
-        self.sppcspc = SPPCSPC(transition_channels * 32, transition_channels * 16)
 
         self.conv_for_P5 = CBS(transition_channels * 16, transition_channels * 8)
         self.conv_for_feat2 = CBS(transition_channels * 32, transition_channels * 8)
@@ -57,7 +54,6 @@ class YoloV7(nn.Module):
         feat1, feat2, feat3 = x['0'], x['1'], x['2']
 
         P5 = self.sppcspc(feat3)
-
         P5_conv = self.conv_for_P5(P5)
         P5_upsample = self.upsample(P5_conv)
         P4 = torch.cat([self.conv_for_feat2(feat2), P5_upsample], 1)
