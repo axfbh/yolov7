@@ -5,24 +5,9 @@ import torch
 import math
 
 
-# 定义卷积层：经过这个层仅变换通道数
-class ConvolutionalLayer(nn.Sequential):
-    def __init__(self, out_channels, kernel_size, stride=1, padding=None):
-        padding = (kernel_size - 1) // 2 if padding is None else padding
-        super(ConvolutionalLayer, self).__init__(
-            nn.LazyConv2d(out_channels, kernel_size, stride, padding, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU()
-        )
-
-
 class YoloHead(nn.Module):
     def __init__(self, out_channle_list: List, num_anchors, num_classes):
         super(YoloHead, self).__init__()
-
-        self.cov1 = ConvolutionalLayer(out_channle_list[0], 3)
-        self.cov1 = ConvolutionalLayer(out_channle_list[1], 3)
-        self.cov1 = ConvolutionalLayer(out_channle_list[2], 3)
 
         self.head_p5 = nn.Conv2d(out_channle_list[0], num_anchors * num_classes, 1, 1, 0)
 
