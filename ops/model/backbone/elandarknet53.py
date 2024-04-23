@@ -47,9 +47,7 @@ class MP1(nn.Module):
         x1 = self.cv1(x1)
 
         x2 = self.cv2(x)
-
-        x = torch.cat([x1, x2], dim=1)
-        return x
+        return torch.cat([x1, x2], dim=1)
 
 
 class ElanDarkNet53(nn.Module):
@@ -68,29 +66,30 @@ class ElanDarkNet53(nn.Module):
 
         self.stage1 = nn.Sequential(
             CBS(transition_channels * 2, transition_channels * 4, 3, 2),
-            Elan(transition_channels * 4, block_channels * 2, transition_channels * 8, n=n, ids=ids))
-
+            Elan(transition_channels * 4, block_channels * 2, transition_channels * 8, n=n, ids=ids)
+        )
         self.stage2 = nn.Sequential(
             MP1(transition_channels * 8, transition_channels * 4),
-            Elan(transition_channels * 8, block_channels * 4, transition_channels * 16, n=n, ids=ids))
-
+            Elan(transition_channels * 8, block_channels * 4, transition_channels * 16, n=n, ids=ids)
+        )
         self.stage3 = nn.Sequential(
             MP1(transition_channels * 16, transition_channels * 8),
-            Elan(transition_channels * 16, block_channels * 8, transition_channels * 32, n=n, ids=ids))
-
+            Elan(transition_channels * 16, block_channels * 8, transition_channels * 32, n=n, ids=ids)
+        )
         self.stage4 = nn.Sequential(
             MP1(transition_channels * 32, transition_channels * 16),
-            Elan(transition_channels * 32, block_channels * 8, transition_channels * 32, n=n, ids=ids))
+            Elan(transition_channels * 32, block_channels * 8, transition_channels * 32, n=n, ids=ids)
+        )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(1024, num_classes)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+        #         nn.init.constant_(m.weight, 1)
+        #         nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = self.stem(x)
