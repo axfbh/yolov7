@@ -11,9 +11,9 @@ class YoloHead(nn.Module):
         self.num_anchors = num_anchors
         self.num_classes = num_classes
 
-        self.head = nn.ModuleList([nn.Conv2d(out_channle_list[0], num_anchors * num_classes + 5, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[1], num_anchors * num_classes + 5, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[2], num_anchors * num_classes + 5, 1, 1, 0)])
+        self.head = nn.ModuleList([nn.Conv2d(out_channle_list[0], num_anchors * (num_classes + 5), 1, 1, 0),
+                                   nn.Conv2d(out_channle_list[1], num_anchors * (num_classes + 5), 1, 1, 0),
+                                   nn.Conv2d(out_channle_list[2], num_anchors * (num_classes + 5), 1, 1, 0)])
 
         self.reset_parameters()
 

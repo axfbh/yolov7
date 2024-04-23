@@ -17,40 +17,40 @@ class SPP(nn.Module):
 
 
 class SPPCSPC(nn.Module):
-    def __init__(self, c1, c2, expand_ratio=0.5, ksizes=(5, 9, 13), activation_layer=nn.ReLU):
+    def __init__(self, c1, c2, expand_ratio=0.5, ksizes=(5, 9, 13), conv_layer=None, activation_layer=nn.ReLU):
         super(SPPCSPC, self).__init__()
 
-        CBS = partial(Conv2dNormActivation,
-                      bias=False,
-                      inplace=False,
-                      norm_layer=nn.BatchNorm2d,
-                      activation_layer=activation_layer)
+        Conv = partial(Conv2dNormActivation,
+                       bias=False,
+                       inplace=False,
+                       norm_layer=nn.BatchNorm2d,
+                       activation_layer=activation_layer) if conv_layer is None else conv_layer
 
         c_ = int(2 * c2 * expand_ratio)
 
         self.cv1 = nn.Sequential(
-            CBS(c1, c_, 1),
-            CBS(c_, c_, 3),
-            CBS(c_, c_, 1),
+            Conv(c1, c_, 1),
+            Conv(c_, c_, 3),
+            Conv(c_, c_, 1),
         )
+
+        self.cv2 = Conv(c1, c_, 1)
 
         self.spp = SPP(ksizes)
 
-        self.cv2 = nn.Sequential(
-            CBS(c_ * 4, c_, 1),
-            CBS(c_, c_, 3),
+        self.cv3 = nn.Sequential(
+            Conv(c_ * 4, c_, 1),
+            Conv(c_, c_, 3),
         )
 
-        self.cv3 = CBS(c1, c_, 1)
-
-        self.cv4 = CBS(c_ * 2, c2, 1)
+        self.cv4 = Conv(c_ * 2, c2, 1)
 
     def forward(self, x):
         x1 = self.cv1(x)
-        x1 = self.spp(x1)
-        x1 = self.cv2(x1)
+        x2 = self.cv2(x)
 
-        x2 = self.cv3(x)
+        x1 = self.spp(x1)
+        x1 = self.cv3(x1)
 
         x = torch.cat([x1, x2], dim=1)
 

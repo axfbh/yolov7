@@ -38,7 +38,7 @@ class YoloPostProcess(PostProcess):
         for i, pi in enumerate(preds):
             bs = pi.size(0)
 
-            stride = torch.tensor(image_size, device=self.device) / grids[i]
+            stride = torch.as_tensor(image_size, device=self.device) / grids[i]
 
             # 锚框下采样到特征图尺寸
             anchor = anchors[i] / stride[[1, 0]]

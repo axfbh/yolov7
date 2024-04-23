@@ -20,7 +20,9 @@ class YoloV7(nn.Module):
 
         self.backbone = _elandarknet_extractor(ElanDarkNet53(transition_channels, block_channels, n, phi), 5)
 
-        self.sppcspc = SPPCSPC(transition_channels * 32, transition_channels * 16, activation_layer=nn.SiLU)
+        self.sppcspc = SPPCSPC(transition_channels * 32, transition_channels * 16,
+                               conv_layer=CBS,
+                               activation_layer=nn.SiLU)
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
 
@@ -45,6 +47,8 @@ class YoloV7(nn.Module):
         self.rep_conv_1 = CBS(transition_channels * 4, transition_channels * 8, 3, 1)
         self.rep_conv_2 = CBS(transition_channels * 8, transition_channels * 16, 3, 1)
         self.rep_conv_3 = CBS(transition_channels * 16, transition_channels * 32, 3, 1)
+
+        self.act = nn.SiLU()
 
         self.head = YoloHead([256, 512, 1024], num_anchors, num_classes)
 
@@ -82,4 +86,5 @@ class YoloV7(nn.Module):
 
 
 def get_model(args):
+    # return YoloBody(num_anchors=3, num_classes=args.num_classes, phi='m')
     return YoloV7(num_anchors=3, num_classes=args.num_classes, phi='l')
