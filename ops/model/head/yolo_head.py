@@ -15,7 +15,7 @@ class YoloHead(nn.Module):
                                    nn.Conv2d(out_channle_list[1], num_anchors * (num_classes + 5), 1, 1, 0),
                                    nn.Conv2d(out_channle_list[2], num_anchors * (num_classes + 5), 1, 1, 0)])
 
-        self.reset_parameters()
+        # self.reset_parameters()
 
     def reset_parameters(self):
         stride = [8, 16, 32]

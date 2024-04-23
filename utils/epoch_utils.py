@@ -228,9 +228,8 @@ def val_epoch(model, loader, device, epoch, criterion):
         preds = post_process(train_out, criterion.anchors, image_size)
 
         for si, pred in enumerate(preds):
-            target = targets[si]
-            target = target[target[:, 1] > 0].to(device)
-            labels = target[target[:, 0] == si, 1:]
+            labels = targets[si, :, 1:]
+            labels = labels[labels[:, 0] > 0].to(device)
             labels[:, 0] = labels[:, 0] - 1
             nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
             correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
