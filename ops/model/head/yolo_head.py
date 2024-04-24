@@ -38,11 +38,13 @@ class YoloV7Head(nn.Module):
             bs, _, ny, nx = x[i].shape  # x(bs,75,20,20) to x(bs,3,20,20,25)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
             if not self.training:  # inference
+                anchors = self.anchors / torch.tensor([W, H], device=device) * torch.tensor([nx, ny], device=device)
+
                 stride = torch.tensor([W, H], device=device) / torch.tensor([nx, ny], device=device)
 
                 shape = 1, self.na, ny, nx, 2  # grid shape
                 grid = make_grid(ny, nx, 1, 1, self.anchors.dtype, device).view((1, 1, ny, nx, 2)).expand(shape)
-                anchor_grid = self.anchors[i].view((1, self.na, 1, 1, 2)).expand(shape)
+                anchor_grid = (anchors[i] * stride).view((1, self.na, 1, 1, 2)).expand(shape)
 
                 xy, wh, conf = x[i].sigmoid().split((2, 2, self.num_classes + 1), -1)
                 xy = (xy * 2 - 0.5 + grid) * stride  # xy
