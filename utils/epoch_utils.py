@@ -19,7 +19,7 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         'lr': 0,
     }
 
-    LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "lr", "Size"))
+    LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr"))
 
     stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
 
@@ -48,8 +48,8 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
         lr = optimizer.param_groups[0]['lr']
         stream.set_description(
-            ("%11s" * 2 + "%11.4g" * 4 + "%11s" * 1)
-            % (str(epoch), mem, metric['lbox'].avg, metric['lobj'].avg, metric['lcls'].avg, lr, str(h) + 'x' + str(w))
+            ("%11s" * 3 + "%11.4g" * 4)
+            % (str(epoch), mem, str(h) + 'x' + str(w), metric['lbox'].avg, metric['lobj'].avg, metric['lcls'].avg, lr)
         )
 
     return metric
