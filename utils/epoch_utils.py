@@ -4,6 +4,7 @@ from utils.history_collect import AverageMeter
 from ops.metric.DetectionMetric import DetectionMetric
 from ops.detection.postprocess_utils import YoloPostProcess
 from torchvision.ops.boxes import box_convert, box_iou
+from ops.detection.nms import non_max_suppression
 import numpy as np
 
 
@@ -223,6 +224,8 @@ def val_epoch(model, loader, device, epoch, criterion):
         preds, train_out = model(images.to(device))
 
         _, lbox, lobj, lcls = criterion(train_out, targets.to(device), image_size.to(device))
+
+        preds = non_max_suppression(preds, 0.001, 0.6)
 
         for si, pred in enumerate(preds):
             labels = targets[si, :, 1:]

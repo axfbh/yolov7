@@ -14,11 +14,11 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
 
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
 
-    max_boxes = 300
+    max_nms = 300
 
     method = 'merge'  #
 
-    output = [torch.zeros((0, 6 + 0), device=prediction.device)] * len(prediction)
+    output = [torch.zeros((0, 6), device=prediction.device)] * len(prediction)
 
     for image_i, pred in enumerate(prediction):
 
@@ -31,15 +31,16 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
         # ------------- 剔除 有问题的 行 --------------
         pred = pred[torch.isfinite(pred).all(1)]
 
-        #  ------------ 根据阈值 剔除多于数量 的 行 --------------
-        max_num = min(max_boxes, pred[:, 4].shape[-1])
-        topk_idxs = torch.topk(pred[:, 4], max_num)[1]  # [batch_size,max_num]
-        pred = pred[topk_idxs]
-
         # 没有目标就去下一个尺度
-        n = pred.shape[0]
-        if n == 0:
+        n = pred.shape[0]  # number of boxes
+        if not n:
             continue
+
+        # conf = obj_conf * cls_conf
+        pred[:, 5:] *= pred[:, 4:5]
+
+        # sort by confidence and remove excess boxes
+        pred = pred[pred[:, 4].argsort(descending=True)[:max_nms]]
 
         # tx,ty,tw,th -> x1,y1,x2,y2
         box = box_convert(pred[:, :4], in_fmt='cxcywh', out_fmt='xyxy')
