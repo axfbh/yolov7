@@ -9,15 +9,17 @@ from utils.logging import LOGGER
 
 
 def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1):
+    # s = ("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "lr", "Size")
+
     model.train()
 
-    stream = tqdm(loader)
+    stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
 
     metric = {
+        'epoch': epoch,
         'lbox': AverageMeter(),
         'lobj': AverageMeter(),
         'lcls': AverageMeter(),
-        'epoch': epoch,
         'lr': 0,
     }
 
@@ -36,11 +38,16 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         if (i + 1) % accumulate == 0 or (i + 1) == len(loader):
             optimizer.step()
             optimizer.zero_grad()
-            metric['lbox'].update(lbox.item())
-            metric['lobj'].update(lobj.item())
-            metric['lcls'].update(lcls.item())
-            metric['lr'] = optimizer.param_groups[0]['lr']
-            stream.set_postfix(**metric)
+
+        metric['lbox'].update(lbox.item())
+        metric['lobj'].update(lobj.item())
+        metric['lcls'].update(lcls.item())
+        metric['lr'] = optimizer.param_groups[0]['lr']
+        stream.set_postfix(**metric)
+        # mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+        # stream.set_description(
+        #     ("%11s" * 2 + "%11.4g" * 5) % (mem, *metric.values(), image_size)
+        # )
 
     return metric
 
@@ -105,14 +112,14 @@ def val_epoch(model, loader, device, epoch, criterion):
 
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
-        stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
-        if len(stats) and stats[0].any():
-            tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats)
-            ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
-            mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-        nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
+    stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
+    if len(stats) and stats[0].any():
+        tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats)
+        ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
+        mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+    nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
 
-        pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
-        LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+    pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
+    LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
 
     return metric

@@ -10,7 +10,7 @@ model:
     end: 30 # -1 不解冻
   weights:
     checkpoints: './checkpoints/checkpoint1.pth'
-    resume: './weight/model_epoch_63_loss_0.053190166130661964_.pth'
+    resume: './weight/model_epoch_69_loss_0.034241347041513236_.pth'
 
 
 #  ------------- 优化器 -------------
