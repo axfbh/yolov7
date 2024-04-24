@@ -213,7 +213,6 @@ def val_epoch(model, loader, device, epoch, criterion):
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
     single_cls = False
-    post_process = YoloPostProcess(device, conf_thres=0.001, iou_thres=0.5)
     tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     for i, data in enumerate(stream):
@@ -221,11 +220,9 @@ def val_epoch(model, loader, device, epoch, criterion):
 
         image_size = torch.as_tensor(images.shape[2:])
 
-        train_out = model(images.to(device))
+        preds, train_out = model(images.to(device))
 
         _, lbox, lobj, lcls = criterion(train_out, targets.to(device), image_size.to(device))
-
-        preds = post_process(train_out, criterion.anchors, image_size)
 
         for si, pred in enumerate(preds):
             labels = targets[si, :, 1:]

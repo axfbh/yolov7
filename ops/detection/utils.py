@@ -1,9 +1,9 @@
 import torch
 
 
-def make_grid(h, w, sh, sw, device):
-    shifts_x = torch.arange(0, w, dtype=torch.int32, device=device) * sw
-    shifts_y = torch.arange(0, h, dtype=torch.int32, device=device) * sh
+def make_grid(h, w, sh, sw, dtype, device):
+    shifts_x = torch.arange(0, w, dtype=dtype, device=device) * sw
+    shifts_y = torch.arange(0, h, dtype=dtype, device=device) * sh
 
     shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x, indexing="ij")
     shift_x = shift_x.reshape(-1)

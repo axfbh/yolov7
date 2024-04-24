@@ -33,7 +33,10 @@ warmup:
   warmup_iters: 3
   warmup_factor: 0.1
 
-anchors: [ [ 10,13 ],[ 16,30 ],[ 33,23 ],[ 30,61 ],[ 62,45 ],[ 59,119 ],[ 116,90 ],[ 156,198 ],[ 373,326 ] ]
+anchors:
+  - [ 10,13 , 16,30 , 33,23 ]
+  - [ 30,61 , 62,45 , 59,119 ]
+  - [ 116,90 , 156,198 , 373,326 ]
 
 weight:
   device: 'cpu'
@@ -42,7 +45,7 @@ weight:
 train:
   dataset:
     path: 'D:\cgm\dataset\VOC2007'
-  batch_size: 12
+  batch_size: 4
   device: 'cuda'
 
 val:

@@ -27,10 +27,12 @@ class YoloLoss(nn.Module):
         self.cp, self.cn = smooth_BCE(eps=0.0)
         self.num_classes = args.num_classes
         self.device = args.train.device
-        # yolo 大网格：小锚框，小网格：大锚框
 
-        # yolo v3 是小grid先出，大grid后出
-        self.anchors = torch.tensor(args.anchors).view(3, -1, 2).to(self.device)
+        # yolo 小grid大anchor，大grid小anchor
+        anchors = args.anchors
+        self.nl = len(anchors)
+        self.na = len(anchors[0]) // 2
+        self.anchors = torch.tensor(anchors).view(self.nl, self.na, 2).to(self.device)
 
     @abstractmethod
     def build_targets(self, targets, grids, image_size):
@@ -93,7 +95,6 @@ class YoloLossV3(YoloLoss):
         return tcls, txy, twh, indices
 
     def forward(self, preds, targets, image_size):
-
         grids = [torch.as_tensor(pi.shape[-2:], device=self.device) for pi in preds]
 
         MSE = nn.MSELoss()
@@ -108,7 +109,7 @@ class YoloLossV3(YoloLoss):
         tcls, txy, twh, indices = self.build_targets(targets, grids, image_size)
 
         for i, pi in enumerate(preds):
-            pi = pi.reshape(pi.size(0), len(self.anchors[0]), -1, grids[i][0], grids[i][1])
+            pi = pi.reshape(pi.size(0), self.na, -1, grids[i][0], grids[i][1])
             pi = pi.permute(0, 1, 3, 4, 2).contiguous()
 
             b, a, gj, gi = indices[i]
@@ -228,7 +229,7 @@ class YoloLossV4(YoloLoss):
         tcls, tbox, indices, anchors = self.build_targets(targets, grids, image_size)
 
         for i, pi in enumerate(preds):
-            pi = pi.reshape(pi.size(0), len(self.anchors[0]), -1, grids[i][0], grids[i][1])
+            pi = pi.reshape(pi.size(0), self.na, -1, grids[i][0], grids[i][1])
             pi = pi.permute([0, 1, 3, 4, 2]).contiguous()
 
             b, a, gj, gi = indices[i]
@@ -368,7 +369,7 @@ class YoloLossV7(YoloLoss):
         return tcls, tbox, indices, anch
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-2:], device=self.device) for pi in preds]
+        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
 
         bs = preds[0].shape[0]
 
@@ -379,8 +380,6 @@ class YoloLossV7(YoloLoss):
         tcls, tbox, indices, anchors = self.build_targets(targets, grids, image_size)
 
         for i, pi in enumerate(preds):
-            pi = pi.reshape(pi.size(0), len(self.anchors[0]), -1, grids[i][0], grids[i][1])
-            pi = pi.permute([0, 1, 3, 4, 2]).contiguous()
 
             b, a, gj, gi = indices[i]
 

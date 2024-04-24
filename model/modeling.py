@@ -1,14 +1,15 @@
 import torch.nn as nn
 import torch
 from ops.model.neck.spp import SPPCSPC
-from ops.model.head.yolo_head import YoloHead
+from ops.model.head.yolo_head import YoloV7Head
 from ops.model.misc.rep_conv import RepConv2d
 from ops.model.backbone.elandarknet53 import ElanDarkNet53, CBS, MP1, Elan
 from ops.model.backbone.utils import _elandarknet_extractor
+from typing import List
 
 
 class YoloV7(nn.Module):
-    def __init__(self, num_anchors, num_classes, phi):
+    def __init__(self, anchors: List, num_classes: int, phi: str):
         super().__init__()
 
         transition_channels = {'l': 32, 'x': 40}[phi]
@@ -50,9 +51,11 @@ class YoloV7(nn.Module):
 
         self.act = nn.SiLU()
 
-        self.head = YoloHead([256, 512, 1024], num_anchors, num_classes)
+        self.head = YoloV7Head([256, 512, 1024], anchors, num_classes)
 
     def forward(self, x):
+        B, C, H, W = x.size()
+
         x = self.backbone(x)
 
         feat1, feat2, feat3 = x['0'], x['1'], x['2']
@@ -80,10 +83,8 @@ class YoloV7(nn.Module):
         P4 = self.rep_conv_2(P4)
         P5 = self.rep_conv_3(P5)
 
-        head = self.head([P3, P4, P5])
-
-        return head
+        return self.head([P3, P4, P5], H, W)
 
 
 def get_model(args):
-    return YoloV7(num_anchors=3, num_classes=args.num_classes, phi='l')
+    return YoloV7(anchors=args.anchors, num_classes=args.num_classes, phi='l')
