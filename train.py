@@ -27,6 +27,7 @@ def train(model, train_loader, val_loader, args):
     optimizer = smart_optimizer(model, 'SGD', args.solver.lr, args.sgd.momentum, args.solver.weight_decay,
                                 args.model.weights.resume)
 
+    # -------- 模型权重加载器 --------
     model, last_epoch = load_model(model, args.model.weights.resume)
 
     start_epoch = last_epoch + 1
