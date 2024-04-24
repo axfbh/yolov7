@@ -29,13 +29,16 @@ def train(model, train_loader, val_loader, args):
                                 momentum=args.sgd.momentum,
                                 weight_decay=args.solver.weight_decay)
 
+    LOGGER.info(
+        f"{colorstr('optimizer:')} {type(optimizer).__name__}(lr={args.solver.lr}) weight(decay={args.solver.weight_decay})"
+    )
+
     # -------- 模型权重加载器 --------
     injector = WeightInject(model=model,
                             optimizer=optimizer,
                             params=args.model.weights,
                             device=args.weight.device)
-
-    injector.load_state_dict("pretrained", "bkpretrained")
+    injector.load_state_dict()
 
     last_epoch = injector.last_epoch
     start_epoch = last_epoch + 1
@@ -87,6 +90,7 @@ def train(model, train_loader, val_loader, args):
 
 def main():
     args = OmegaConf.load('./config/config.yaml')
+    LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in args.items()))
 
     model = setup(args)
 
