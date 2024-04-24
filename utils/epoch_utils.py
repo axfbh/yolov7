@@ -105,15 +105,14 @@ def val_epoch(model, loader, device, epoch, criterion):
 
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
-        if (i + 1) == len(loader):
-            stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
-            if len(stats) and stats[0].any():
-                tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats)
-                ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
-                mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-            nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
+        stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
+        if len(stats) and stats[0].any():
+            tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats)
+            ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
+            mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+        nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
 
-            pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
-            LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+        pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
+        LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
 
     return metric
