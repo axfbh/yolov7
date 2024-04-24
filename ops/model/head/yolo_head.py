@@ -42,7 +42,7 @@ class YoloV7Head(nn.Module):
 
                 shape = 1, self.na, ny, nx, 2  # grid shape
                 grid = make_grid(ny, nx, 1, 1, self.anchors.dtype, device).view((1, 1, ny, nx, 2)).expand(shape)
-                anchor_grid = (self.anchors[i] * stride).view((1, self.na, 1, 1, 2)).expand(shape)
+                anchor_grid = self.anchors[i].view((1, self.na, 1, 1, 2)).expand(shape)
 
                 xy, wh, conf = x[i].sigmoid().split((2, 2, self.num_classes + 1), -1)
                 xy = (xy * 2 - 0.5 + grid) * stride  # xy
