@@ -38,7 +38,7 @@ class YoloV7Head(nn.Module):
             bs, _, ny, nx = x[i].shape  # x(bs,75,20,20) to x(bs,3,20,20,25)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
             if not self.training:  # inference
-                stride = torch.tensor([nx, ny], device=device) / torch.tensor([W, H], device=device)
+                stride = torch.tensor([W, H], device=device) / torch.tensor([nx, ny], device=device)
 
                 shape = 1, self.na, ny, nx, 2  # grid shape
                 grid = make_grid(ny, nx, 1, 1, self.anchors.dtype, device).view((1, 1, ny, nx, 2)).expand(shape)

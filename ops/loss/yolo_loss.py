@@ -310,7 +310,7 @@ class YoloLossV7(YoloLoss):
             # ----------- 锚框映射到 grid 大小 -----------
             anchor = self.anchors[i] / stride[[1, 0]]
 
-            na = len(anchor)
+            na = len(anchor[0])
 
             # ----------- 归一化的 坐标和长宽 -----------
             gain[2:] = (1 / stride)[[1, 0, 1, 0]]

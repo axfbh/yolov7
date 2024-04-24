@@ -28,8 +28,8 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
         #  ------------ 提取 满足 wh 的 行 --------------
         pred = pred[((pred[:, 2:4] > min_wh) & (pred[:, 2:4] < max_wh)).all(1)]
 
-        # ------------- 剔除 有问题的 行 --------------
-        pred = pred[torch.isfinite(pred).all(1)]
+        # sort by confidence and remove excess boxes
+        pred = pred[pred[:, 4].argsort(descending=True)[:max_nms]]
 
         # 没有目标就去下一个尺度
         n = pred.shape[0]  # number of boxes
@@ -38,9 +38,6 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
 
         # conf = obj_conf * cls_conf
         pred[:, 5:] *= pred[:, 4:5]
-
-        # sort by confidence and remove excess boxes
-        pred = pred[pred[:, 4].argsort(descending=True)[:max_nms]]
 
         # tx,ty,tw,th -> x1,y1,x2,y2
         box = box_convert(pred[:, :4], in_fmt='cxcywh', out_fmt='xyxy')
