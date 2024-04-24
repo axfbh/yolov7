@@ -1,6 +1,7 @@
 import torch
 import os
 from typing import List
+import torch.nn as nn
 from torch.nn.parameter import is_lazy
 from utils.logging import LOGGER, colorstr
 
@@ -28,71 +29,84 @@ def _load_from(model, weight):
     model.load_state_dict(weight)
 
 
-class WeightInject:
-    def __init__(self,
-                 model,
-                 optimizer,
-                 params,
-                 device):
-        """
-
-        :param model:
-        :param optimizer:
-        :param params:
-        """
-        self.device = device
-        self.optimizer = optimizer
-        self.model = model
-        self.resume_path = params['resume']
-        self.print_info = ''
-        self.last_epoch = -1
-        self.lr = [param['lr'] for param in optimizer.param_groups]
-
-    def load_state_dict(self):
-        self.__weight_load()
-
-    def __weight_load(self):
-        if _check_file_exits(self.resume_path):
-            save_dict = torch.load(self.resume_path, map_location=self.device)
-            # ---------- 加载模型权重 ----------
-            model_param = save_dict['model']
-            _load_from(self.model, model_param)
-
-            # ---------- 加载优化器权重 ----------
-            optim_param = save_dict.get('optimizer', None)
-            optim_name = save_dict.get('optimizer_name', None)
-            last_epoch = save_dict.get('last_epoch', None)
-
-            if optim_param is None or optim_name is None:
-                LOGGER.warning(
-                    f"{colorstr('Warning')} cannot loaded the previous optimizer parameter , but it doesnt affect the model working."
-                )
-
-            if optim_name == self.optimizer.__class__.__name__:
-                self.optimizer.load_state_dict(optim_param)
-                for param in self.optimizer.param_groups:
-                    LOGGER.info(
-                        f"{colorstr('optimizer loaded:')}  lr: {param['lr']} lr: {param['weight_decay']}"
-                    )
+def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save_path=None):
+    g = [], [], []  # optimizer parameter groups
+    bn = tuple(v for k, v in nn.__dict__.items() if "Norm" in k)  # normalization layers, i.e. BatchNorm2d()
+    for v in model.modules():
+        for p_name, p in v.named_parameters(recurse=0):
+            if p_name == "bias":  # bias (no decay)
+                g[2].append(p)
+            elif p_name == "weight" and isinstance(v, bn):  # weight (no decay)
+                g[1].append(p)
             else:
-                LOGGER.warning(
-                    f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
-                )
+                g[0].append(p)  # weight (with decay)
 
-            # ---------- epoch 识别 ----------
-            resume_info = last_epoch if last_epoch is not None else self.resume_path.strip('\n\t').split('_')[2]
-            try:
-                self.last_epoch = int(resume_info)
-            except TypeError:
-                LOGGER.warning(
-                    f"{colorstr('Warning')} cannot loaded the previous last_epoch , but it doesnt affect the model working."
-                )
+    if name == "Adam":
+        optimizer = torch.optim.Adam(g[2], lr=lr, betas=(momentum, 0.999))  # adjust beta1 to momentum
+    elif name == "AdamW":
+        optimizer = torch.optim.AdamW(g[2], lr=lr, betas=(momentum, 0.999), weight_decay=0.0)
+    elif name == "RMSProp":
+        optimizer = torch.optim.RMSprop(g[2], lr=lr, momentum=momentum)
+    elif name == "SGD":
+        optimizer = torch.optim.SGD(g[2], lr=lr, momentum=momentum, nesterov=True)
+    else:
+        raise NotImplementedError(f"Optimizer {name} not implemented.")
+
+    optimizer.add_param_group({"params": g[0], "weight_decay": decay})  # add g0 with weight_decay
+    optimizer.add_param_group({"params": g[1], "weight_decay": 0.0})  # add g1 (BatchNorm2d weights)
+
+    # ------------ resume optimizer ------------
+    if _check_file_exits(save_path):
+        save_dict = torch.load(save_path)
+
+        optim_param = save_dict.get('optimizer', None)
+        optim_name = save_dict.get('optimizer_name', None)
+
+        if optim_name == optimizer.__class__.__name__:
+            optimizer.load_state_dict(optim_param)
+            for param in optimizer.param_groups:
                 LOGGER.info(
-                    f"{colorstr('model loaded:')} pate {self.resume_path} -> {self.model._get_name()}"
+                    f"{colorstr('optimizer loaded:')} {type(optimizer).__name__}(lr={param['lr']}) with parameter groups"
+                    f"{len(param)} weight(decay={param['weight_decay']})"
                 )
-            else:
-                LOGGER.info(
-                    f"{colorstr('model loaded:')} path: {self.resume_path} last_epoch: {self.last_epoch} -> {self.model._get_name()}"
-                )
+            return optimizer
         else:
-            self.print_info = 'nothing to loading'
+            LOGGER.warning(
+                f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
+            )
+
+    LOGGER.info(
+        f"{colorstr('optimizer:')} {type(optimizer).__name__}(lr={lr}) with parameter groups "
+        f'{len(g[1])} weight(decay=0.0), {len(g[0])} weight(decay={decay}), {len(g[2])} bias'
+    )
+    return optimizer
+
+
+def load_model(model, save_path=None):
+    last_epoch = -1
+    if _check_file_exits(save_path):
+        save_dict = torch.load(save_path)
+
+        last_epoch = save_dict.get('last_epoch', None)
+
+        # ---------- 加载模型权重 ----------
+        model_param = save_dict['model']
+        _load_from(model, model_param)
+
+        # ---------- epoch 识别 ----------
+        resume_info = last_epoch if last_epoch is not None else save_path.strip('\n\t').split('_')[2]
+        try:
+            last_epoch = int(resume_info)
+        except TypeError:
+            last_epoch = -1
+            LOGGER.warning(
+                f"{colorstr('Warning')} cannot loaded the previous last_epoch , but it doesnt affect the model working."
+            )
+            LOGGER.info(
+                f"{colorstr('model loaded:')} pate {save_path} -> {model._get_name()}"
+            )
+        else:
+            LOGGER.info(
+                f"{colorstr('model loaded:')} path: {save_path} last_epoch: {last_epoch} -> {model._get_name()}"
+            )
+    return model, last_epoch

@@ -8,7 +8,7 @@ import os
 from utils.model_freeze import FreezeLayer
 from ops.loss.yolo_loss import YoloLossV7
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
-from utils.weight_inject import WeightInject
+from utils.weight_inject import smart_optimizer, load_model
 from utils.logging import LOGGER, colorstr
 
 
@@ -24,23 +24,11 @@ def train(model, train_loader, val_loader, args):
     accumulate = max(round(nbs / nb), 1)
 
     # -------- 梯度优化器 --------
-    optimizer = torch.optim.SGD(model.parameters(),
-                                lr=args.solver.lr,
-                                momentum=args.sgd.momentum,
-                                weight_decay=args.solver.weight_decay)
+    optimizer = smart_optimizer(model, 'SGD', args.solver.lr, args.sgd.momentum, args.solver.weight_decay,
+                                args.model.weights.resume)
 
-    LOGGER.info(
-        f"{colorstr('optimizer:')} {type(optimizer).__name__}(lr={args.solver.lr}) weight(decay={args.solver.weight_decay})"
-    )
+    model, last_epoch = load_model(model, args.model.weights.resume)
 
-    # -------- 模型权重加载器 --------
-    injector = WeightInject(model=model,
-                            optimizer=optimizer,
-                            params=args.model.weights,
-                            device=args.weight.device)
-    injector.load_state_dict()
-
-    last_epoch = injector.last_epoch
     start_epoch = last_epoch + 1
     end_epoch = args.iter_max + 1
 
