@@ -81,7 +81,7 @@ def get_loader(args):
                             args,
                             val_transform)
 
-    nw = min(3, args.train.batch_size, 1)
+    nw = min(3, args.train.batch_size)
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=args.train.batch_size,
