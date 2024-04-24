@@ -49,8 +49,6 @@ class YoloV7(nn.Module):
         self.rep_conv_2 = CBS(transition_channels * 8, transition_channels * 16, 3, 1)
         self.rep_conv_3 = CBS(transition_channels * 16, transition_channels * 32, 3, 1)
 
-        self.act = nn.SiLU()
-
         self.head = YoloV7Head([256, 512, 1024], anchors, num_classes)
 
     def forward(self, x):
