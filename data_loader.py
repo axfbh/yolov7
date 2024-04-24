@@ -31,8 +31,14 @@ class MyDataSet(VOCDetection):
         bbox_params = torch.FloatTensor(sample['bboxes'])
         classes = torch.LongTensor(sample['classes'])[:, None]
 
-        gxy = (bbox_params[:, 2:] + bbox_params[:, :2]) * 0.5
-        gwy = bbox_params[:, 2:] - bbox_params[:, :2]
+        nl = len(bbox_params)
+
+        if nl:
+            gxy = (bbox_params[:, 2:] + bbox_params[:, :2]) * 0.5
+            gwy = bbox_params[:, 2:] - bbox_params[:, :2]
+        else:
+            gxy = torch.zeros((nl, 2))
+            gwy = torch.zeros((nl, 2))
 
         indices = torch.zeros_like(classes)
 
@@ -72,7 +78,7 @@ def get_loader(args):
                             args,
                             val_transform)
 
-    nw = min(3, args.train.batch_size)
+    nw = min(3, args.train.batch_size, 1)
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=args.train.batch_size,
