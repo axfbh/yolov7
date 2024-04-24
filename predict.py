@@ -33,7 +33,7 @@ def inference(model, image, device):
 
     # ------- 补充 ---------
     return non_max_suppression(preds, 0.3, 0.4)
-
+s
 
 @torch.no_grad()
 def predict(model, args):
