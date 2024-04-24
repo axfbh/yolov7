@@ -9,11 +9,7 @@ from utils.logging import LOGGER
 
 
 def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1):
-    # s = ("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "lr", "Size")
-
     model.train()
-
-    stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
 
     metric = {
         'epoch': epoch,
@@ -23,10 +19,16 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         'lr': 0,
     }
 
+    LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "lr", "Size"))
+
+    stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
+
     for i, data in enumerate(stream):
         images, targets = data
 
-        image_size = torch.as_tensor(images.shape[2:])
+        _, _, h, w = images.size()
+
+        image_size = torch.tensor([h, w])
 
         preds = model(images.to(device))
 
@@ -42,12 +44,13 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
         metric['lbox'].update(lbox.item())
         metric['lobj'].update(lobj.item())
         metric['lcls'].update(lcls.item())
-        metric['lr'] = optimizer.param_groups[0]['lr']
-        stream.set_postfix(**metric)
-        # mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
-        # stream.set_description(
-        #     ("%11s" * 2 + "%11.4g" * 5) % (mem, *metric.values(), image_size)
-        # )
+
+        mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+        lr = optimizer.param_groups[0]['lr']
+        stream.set_description(
+            ("%11s" * 2 + "%11.4g" * 4 + "%11s" * 1)
+            % (str(epoch), mem, metric['lbox'].avg, metric['lobj'].avg, metric['lcls'].avg, lr, str(h) + 'x' + str(w))
+        )
 
     return metric
 

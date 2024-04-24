@@ -10,7 +10,7 @@ model:
     end: 30 # -1 不解冻
   weights:
     checkpoints: './checkpoints/checkpoint1.pth'
-    resume: './weight/model_epoch_69_loss_0.034241347041513236_.pth'
+    resume: './weight/model_epoch_70_loss_0.06909036442637444_.pth'
 
 
 #  ------------- 优化器 -------------
@@ -41,20 +41,20 @@ weight:
 
 train:
   dataset:
-    path: 'D:\cgm\dataset\VOC2007'
-  batch_size: 3
+    path: 'D:\dataset\VOC2007'
+  batch_size: 16
   device: 'cuda'
 
 val:
   dataset:
-    path: 'D:\cgm\dataset\VOC2007'
-  batch_size: 8
+    path: 'D:\dataset\VOC2007'
+  batch_size: 16
 
 
 test:
   dataset:
     path: './data/voctest.txt'
-    root: 'D:\cgm\dataset\VOC2007\JPEGImages'
+    root: 'D:\dataset\VOC2007\JPEGImages'
   batch_size: 5
   device: 'cuda'
 

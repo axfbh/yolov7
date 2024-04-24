@@ -3,7 +3,7 @@ import logging.config
 import os
 import platform
 
-LOGGING_NAME = "yolov5"
+LOGGING_NAME = "yolov7"
 
 
 def set_logging(name=LOGGING_NAME, verbose=True):

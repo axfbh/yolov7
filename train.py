@@ -34,20 +34,20 @@ def train(model, train_loader, val_loader, args):
     end_epoch = args.iter_max + 1
 
     # -------- 学习率优化器 and 学习率预热器 --------
-    scheduler = WarmupMultiStepLR(optimizer,
-                                  milestones=[140, 220],
-                                  gamma=0.1,
-                                  last_epoch=last_epoch,
-                                  warmup_method=args.warmup.warmup_method,
-                                  warmup_factor=args.warmup.warmup_factor,
-                                  warmup_iters=args.warmup.warmup_iters)
+    # scheduler = WarmupMultiStepLR(optimizer,
+    #                               milestones=[140, 220],
+    #                               gamma=0.1,
+    #                               last_epoch=last_epoch,
+    #                               warmup_method=args.warmup.warmup_method,
+    #                               warmup_factor=args.warmup.warmup_factor,
+    #                               warmup_iters=args.warmup.warmup_iters)
 
-    # scheduler = WarmupCosineLR(optimizer,
-    #                            end_epoch,
-    #                            last_epoch,
-    #                            warmup_method=args.warmup.warmup_method,
-    #                            warmup_factor=args.warmup.warmup_factor,
-    #                            warmup_iters=args.warmup.warmup_iters)
+    scheduler = WarmupCosineLR(optimizer,
+                               end_epoch,
+                               last_epoch,
+                               warmup_method=args.warmup.warmup_method,
+                               warmup_factor=args.warmup.warmup_factor,
+                               warmup_iters=args.warmup.warmup_iters)
 
     # -------- 每个 epoch 的 loss 记录工具 --------
     history_loss = HistoryLoss(args.log_info.path,
