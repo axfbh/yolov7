@@ -9,7 +9,6 @@ import cv2
 from omegaconf import OmegaConf
 import albumentations as A
 from ops.detection.nms import non_max_suppression
-from utils.utils import handle_preds
 from albumentations.pytorch import ToTensorV2
 from ops.transform.resize_maker import ResizeLongestPaddingShort
 import ops.cv.io as io
@@ -29,12 +28,11 @@ def setup(args):
     return model
 
 
-def inference(model, image, anchors, post_process, device):
-    h, w = image.shape[-2:]
-    preds = model(image.to(device))
+def inference(model, image, device):
+    preds, _ = model(image.to(device))
 
     # ------- 补充 ---------
-    return post_process(preds, anchors, (h, w))
+    return non_max_suppression(preds, 0.3, 0.4)
 
 
 @torch.no_grad()
@@ -44,10 +42,6 @@ def predict(model, args):
     root = args.test.dataset.root
 
     device = args.test.device
-
-    anchors = torch.tensor(args.anchors, device=device).view(3, -1, 2)  # (scale, grid_num, point)
-
-    post_process = YoloPostProcess(device, conf_thres=0.3, iou_thres=0.4)
 
     with open(args.test.dataset.path, 'r') as fp:
         loader = fp.readlines()
@@ -68,7 +62,7 @@ def predict(model, args):
         if (i + 1) % 5 == 0:
             batch_image = batch_images(batch_image)
 
-            output = inference(model, batch_image, anchors, post_process, device)
+            output = inference(model, batch_image, device)
 
             for i, out in enumerate(output):
                 if out is not None:
