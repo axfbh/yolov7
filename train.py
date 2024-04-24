@@ -9,6 +9,7 @@ from utils.model_freeze import FreezeLayer
 from ops.loss.yolo_loss import YoloLossV7
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
 from utils.weight_inject import WeightInject
+from utils.logging import LOGGER, colorstr
 
 
 def setup(args):

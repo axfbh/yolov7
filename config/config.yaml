@@ -10,7 +10,7 @@ model:
     end: 30 # -1 不解冻
   weights:
     checkpoints: './checkpoints/checkpoint1.pth'
-    resume: './weight/model_epoch_9_loss_0.09982677442686898_.pth'
+    resume: './weight/model_epoch_9_loss_0.06978616916707583_.pth'
     extra:
       pretrained: None
       bkpretrained: './pretrained/'
@@ -45,7 +45,7 @@ weight:
 train:
   dataset:
     path: 'D:\cgm\dataset\VOC2007'
-  batch_size: 4
+  batch_size: 3
   device: 'cuda'
 
 val:
