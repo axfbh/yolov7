@@ -53,14 +53,6 @@ class YoloV7(nn.Module):
                                anchors,
                                num_classes)
 
-        self.init_parameters()
-
-    def init_parameters(self):
-        s = 256  # 2x min stride
-        forward = lambda x: self.forward(x)
-        self.head.stride = torch.tensor([s / x.shape[-2] for x in forward(torch.zeros(1, 3, s, s))])  # forward
-        self.stride = self.head.stride
-
     def reset_parameters(self):
         for m in self.modules():
             t = type(m)
