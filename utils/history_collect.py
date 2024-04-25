@@ -41,7 +41,10 @@ class AverageMeter(object):
 
 
 class History:
-    def __init__(self, project_dir: Path, name: str, mode: str, save_period=-1, yaml_args: Dict = None):
+    def __init__(self, project_dir: Path, name: str, mode: str,
+                 save_period=-1,
+                 best_fitness=None,
+                 yaml_args: Dict = None):
         project_dir = project_dir.joinpath(mode)
         # ------------- 根据 时间创建文件夹 ---------------
         if not project_dir.exists():
@@ -63,7 +66,7 @@ class History:
 
         self.exp_dir = exp_dir
         self.weight_dir = weight_dir
-        self.best_fitness = None
+        self.best_fitness = best_fitness
         self.save_period = save_period
 
     def save(self, model, optimizer, epoch, fitness: float):

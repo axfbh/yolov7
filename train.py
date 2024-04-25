@@ -13,7 +13,7 @@ from utils.epoch_utils import train_epoch, val_epoch
 from utils.history_collect import History
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
 from utils.torch_utils import smart_optimizer, smart_resume
-from utils.logging import LOGGER, colorstr, print_args
+from utils.logging import print_args
 
 
 # hyp: hyper parameter
