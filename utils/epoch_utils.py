@@ -16,7 +16,6 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, scaler, accu
         'lbox': AverageMeter(),
         'lobj': AverageMeter(),
         'lcls': AverageMeter(),
-        'lr': 0,
     }
 
     LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr"))
@@ -67,14 +66,10 @@ def val_epoch(model, loader, device, epoch, criterion):
     stream = tqdm(loader, desc=s, bar_format="{l_bar}{bar:10}{r_bar}")
 
     metric = {
-        'mp': AverageMeter(),
-        'mr': AverageMeter(),
-        'map': AverageMeter(),
-        'map50': AverageMeter(),
         'epoch': epoch,
     }
 
-    jdict, stats, ap, ap_class = [], [], [], []
+    stats, ap, ap_class = [], [], []
 
     seen = 0
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
@@ -127,5 +122,9 @@ def val_epoch(model, loader, device, epoch, criterion):
 
     pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
     LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+    metric['map50'] = map50
+    metric['map'] = map
+    metric['mp'] = mp
+    metric['mr'] = mr
 
     return metric

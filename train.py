@@ -81,7 +81,7 @@ def train(model, train_loader, val_loader, args):
 
         save_model(model, optimizer, train_metric)
         history_loss.append(train_metric['lbox'].avg,
-                            0)
+                            val_metric['map50'])
         history_loss.loss_plot(start=start_epoch)
 
 

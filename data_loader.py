@@ -57,12 +57,13 @@ def get_loader(args):
     train_transform = A.Compose([
         A.Affine(scale={"x": (1 - 0.5, 1 + 0.5), "y": (1 - 0.5, 1 + 0.5)},
                  translate_percent={"x": (0.5 - 0.1, 0.5 + 0.1), "y": (0.5 - 0.1, 0.5 + 0.1)},
-                 cval=114),
+                 cval=114,
+                 p=0.9),
         A.Blur(p=0.01),
         A.MedianBlur(p=0.01),
         A.ToGray(p=0.01),
         A.CLAHE(p=0.01),
-        A.HueSaturationValue(),
+        A.HueSaturationValue(p=0.9),
         A.HorizontalFlip(p=0.5),
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
     LOGGER.info(f"{colorstr('albumentations: ')}" + ", ".join(

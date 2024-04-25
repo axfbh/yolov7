@@ -57,7 +57,7 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save
 
     # ------------ resume optimizer ------------
     if _check_file_exits(save_path):
-        save_dict = torch.load(save_path)
+        save_dict = torch.load(save_path, map_location='cpu')
 
         optim_param = save_dict.get('optimizer', None)
         optim_name = save_dict.get('optimizer_name', None)
@@ -85,7 +85,7 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save
 def load_model(model, save_path=None):
     last_epoch = -1
     if _check_file_exits(save_path):
-        save_dict = torch.load(save_path)
+        save_dict = torch.load(save_path, map_location='cpu')
 
         last_epoch = save_dict.get('last_epoch', None)
 
