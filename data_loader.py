@@ -59,7 +59,6 @@ class MyDataSet(VOCDetection):
 
 
 def get_loader(hyp, opt):
-    data = OmegaConf.load(Path(opt.data))
     train_transform = A.Compose([
         A.Affine(scale={"x": (1 - hyp.scale, 1 + hyp.scale),
                         "y": (1 - hyp.scale, 1 + hyp.scale)},
@@ -79,6 +78,8 @@ def get_loader(hyp, opt):
 
     val_transform = A.Compose([
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
+
+    data = OmegaConf.load(Path(opt.data))
 
     train_dataset = MyDataSet(Path(data.train),
                               'car_train',
