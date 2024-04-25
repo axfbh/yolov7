@@ -100,7 +100,7 @@ def parse_opt():
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
+    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", default='./logs/train/exp1/weights/last.pt', help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")

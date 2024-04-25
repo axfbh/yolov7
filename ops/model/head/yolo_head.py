@@ -40,12 +40,14 @@ class YoloV7Head(nn.Module):
             if not self.training:  # inference
                 anchor = self.anchors[i] / torch.tensor([W, H], device=device) * torch.tensor([nx, ny], device=device)
 
+                stride = torch.tensor([W, H], device=device) / torch.tensor([nx, ny], device=device)
+
                 shape = 1, self.na, ny, nx, 2  # grid shape
                 grid = make_grid(ny, nx, 1, 1, self.anchors.dtype, device).view((1, 1, ny, nx, 2)).expand(shape)
-                anchor_grid = (anchor * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
+                anchor_grid = (anchor * stride).view((1, self.na, 1, 1, 2)).expand(shape)
 
                 xy, wh, conf = x[i].sigmoid().split((2, 2, self.num_classes + 1), -1)
-                xy = (xy * 2 - 0.5 + grid) * self.stride[i]  # xy
+                xy = (xy * 2 - 0.5 + grid) * stride  # xy
                 wh = (wh * 2) ** 2 * anchor_grid  # wh
                 y = torch.cat((xy, wh, conf), 4)
 

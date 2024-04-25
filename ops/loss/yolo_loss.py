@@ -22,13 +22,13 @@ class YoloLoss(BasicLoss):
         self.nl = m.nl
         self.na = m.na
         self.num_classes = m.num_classes
-        self.g = self.hyp.get('g', 0.5)
+        self.g = self.hyp['g']
 
         self.balance = [4.0, 1.0, 0.4]
 
         # Define criteria
-        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
-        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
+        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([self.hyp['cls_pw']], device=self.device))
+        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([self.hyp['obj_pw']], device=self.device))
 
     @abstractmethod
     def build_targets(self, targets, grids, image_size):
