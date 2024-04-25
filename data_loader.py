@@ -82,16 +82,16 @@ def get_loader(hyp, opt):
     data = OmegaConf.load(Path(opt.data))
 
     train_dataset = MyDataSet(Path(data.train),
-                              'car_train',
-                              opt.image_size,
-                              data.names,
-                              train_transform)
+                              image_set='car_train',
+                              image_size=opt.image_size,
+                              class_name=data.names,
+                              transform=train_transform)
 
     val_dataset = MyDataSet(Path(data.val),
-                            'car_val',
-                            opt.image_size,
-                            data.names,
-                            val_transform)
+                            image_set='car_val',
+                            image_size=opt.image_size,
+                            class_name=data.names,
+                            transform=val_transform)
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=opt.batch_size,
