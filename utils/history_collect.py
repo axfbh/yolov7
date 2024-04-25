@@ -67,7 +67,7 @@ class History:
         self.save_period = save_period
 
     def save(self, model, optimizer, epoch, fitness: float):
-        if fitness >= self.best_fitness or self.best_fitness is None:
+        if self.best_fitness is None or fitness >= self.best_fitness:
             self.best_fitness = fitness
 
         save_dict = {
