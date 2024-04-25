@@ -25,7 +25,7 @@ class YoloV7Head(nn.Module):
         stride = [8, 16, 32]
         for layer, s in zip(self.head, stride):
             if isinstance(layer, nn.Conv2d):
-                b = layer.bias.view(self.num_anchors, -1)
+                b = layer.bias.view(self.na, -1)
                 b.data[:, 4] += math.log(8 / (640 / s) ** 2)
                 b.data[:, 5:self.num_classes] += math.log(0.6 / (self.num_classes - 0.99999))
                 layer.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
