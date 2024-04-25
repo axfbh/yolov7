@@ -53,6 +53,15 @@ class YoloV7(nn.Module):
                                anchors,
                                num_classes)
 
+    def reset_parameters(self):
+        for m in self.modules():
+            t = type(m)
+            if t is nn.Conv2d:
+                pass  # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif t is nn.BatchNorm2d:
+                m.eps = 1e-3
+                m.momentum = 0.03
+
     def forward(self, x):
         B, C, H, W = x.size()
 
