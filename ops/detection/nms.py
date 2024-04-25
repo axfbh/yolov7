@@ -5,7 +5,7 @@ import torchvision
 torch.set_printoptions(precision=4, sci_mode=False)
 
 
-def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
+def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, max_nms=300):
     """
     Performs  Non-Maximum Suppression on inference results
     Returns detections with shape:
@@ -14,7 +14,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6):
 
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
 
-    max_nms = 300
+    max_nms = max_nms
 
     method = 'merge'  #
 

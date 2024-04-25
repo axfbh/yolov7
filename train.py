@@ -94,7 +94,7 @@ def train(train_loader, val_loader, hyp, opt):
 def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
-    parser.add_argument("--cfg", type=str, default="models/yolov7l.yaml", help="model.yaml path")
+    parser.add_argument("--cfg", type=str, default="./models/yolov7l.yaml", help="model.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
     parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
 

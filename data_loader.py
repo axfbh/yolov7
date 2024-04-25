@@ -55,7 +55,7 @@ class MyDataSet(VOCDetection):
             gwy
         ])
 
-        return image / 255., target
+        return image, target
 
 
 def get_loader(hyp, opt):
