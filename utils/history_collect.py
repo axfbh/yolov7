@@ -1,27 +1,23 @@
 import os
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Union
 
 import torch
-import datetime
+
+from scipy.signal import savgol_filter
 
 import matplotlib
-from scipy.signal import savgol_filter
-from typing import List, Tuple, Union
-
-matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
+matplotlib.use('Agg')
+import yaml
 
-def save_model(model, optimizer, metric):
-    loss = metric['lbox'].avg
-    epoch = metric['epoch']
-    path = f'./weight/model_epoch_{epoch}_loss_{loss}_.pth'
-    save_dict = {
-        'optimizer_name': optimizer.__class__.__name__,
-        'optimizer': optimizer.state_dict(),
-        'model': model.state_dict(),
-        'last_epoch': epoch
-    }
-    torch.save(save_dict, path)
+
+def yaml_save(file: Union[str, Path] = "data.yaml", data={}):
+    # Single-line safe yaml saving
+    with open(file, "w") as f:
+        yaml.safe_dump({k: str(v) if isinstance(v, Path) else v for k, v in data.items()}, f, sort_keys=False)
 
 
 class AverageMeter(object):
@@ -34,84 +30,94 @@ class AverageMeter(object):
         self.sum = 0
         self.count = 0
 
-    def reset_arr(self, num):
-        self.val_arr = [0. for _ in range(num)]
-        self.avg_arr = [0. for _ in range(num)]
-        self.sum_arr = [0. for _ in range(num)]
-        self.count_arr = [0. for _ in range(num)]
-
-    def update(self, val: Union[float, int, List], n=1):
-
-        # -------------- 数组统计 --------------
-        if isinstance(val, List):
-
-            if not hasattr(self, 'val_arr'):
-                num = len(val)
-                self.reset_arr(num)
-
-            for i in range(len(val)):
-                if val[i] is not None:
-                    self.val_arr[i] = val[i]
-                    self.sum_arr[i] = val[i] * n
-                    self.count_arr[i] = n
-                    self.avg_arr[i] = self.sum_arr[i] / self.count_arr[i]
-
-        else:
-            self.val = val
-            self.sum += val * n
-            self.count += n
-            self.avg = self.sum / self.count
+    def update(self, val: Union[float, int], n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
     def __repr__(self):
-        if hasattr(self, 'val_arr'):
-            return str(self.avg_arr)
         return str(self.avg)
 
 
-class HistoryLoss:
-    def __init__(self, log_dir: str, log_num: int, modes: List[str]):
-        time_str = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
-        log_dir = os.path.join(log_dir, "loss_" + str(time_str))
+class History:
+    def __init__(self, project_dir: Path, name: str, mode: str, save_period=-1, yaml_args: Dict = None):
+        project_dir = project_dir.joinpath(mode)
         # ------------- 根据 时间创建文件夹 ---------------
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        self.mode_dir = []
-        for mode in modes:
-            self.mode_dir.append(os.path.join(log_dir, mode))
-            if not os.path.exists(self.mode_dir[-1]):
-                os.makedirs(self.mode_dir[-1])
+        if not project_dir.exists():
+            project_dir.mkdir()
 
-        self.loss_arrs = [[] for _ in modes]
-        self.log_num = log_num
+        i = 0
+        while True:
+            exp_dir = project_dir.joinpath(name + str(i) if i else '')
+            if not exp_dir.exists():
+                exp_dir.mkdir()
+                weight_dir = exp_dir.joinpath('weights')
+                weight_dir.mkdir()
+                break
+            i += 1
 
-    def append(self, *args):
-        for loss_arr, l in zip(self.loss_arrs, args):
-            loss_arr.append(l)
+        if yaml_args is not None:
+            for k, v in yaml_args.items():
+                yaml_save(exp_dir.joinpath(f"{k}.yaml"), v)
 
-    def loss_plot(self, start, log_num=None):
-        for loss, path in zip(self.loss_arrs, self.mode_dir):
-            log_num = self.log_num if log_num is None else log_num
+        self.exp_dir = exp_dir
+        self.weight_dir = weight_dir
+        self.best_fitness = None
+        self.save_period = save_period
 
-            if len(loss) > log_num:
-                iters = range(start, len(loss) + start)
-                plt.figure()
-                plt.plot(iters, loss, 'red', linewidth=2, label='train loss')
-                try:
-                    num = 5 if len(loss) < 25 else 10
-                    plt.plot(iters, savgol_filter(loss, num, 3), 'green', linestyle='--', linewidth=2,
-                             label='smooth train loss')
-                except Exception:
-                    pass
-                else:
-                    plt.grid(True)
-                    plt.xlabel('Epoch')
-                    plt.ylabel('Loss')
-                    plt.legend(loc="upper right")
+    def save(self, model, optimizer, epoch, fitness: float):
+        if fitness >= self.best_fitness or self.best_fitness is None:
+            self.best_fitness = fitness
 
-                    plt.savefig(os.path.join(path, "epoch_loss.png"))
+        save_dict = {
+            'last_epoch': epoch,
+            "best_fitness": fitness,
+            'optimizer_name': optimizer.__class__.__name__,
+            'optimizer': optimizer.state_dict(),
+            'model': model.state_dict(),
+            "date": datetime.now().isoformat(),
+        }
 
-                    plt.cla()
-                    plt.close("all")
+        # ---------- save last model --------------
+        last_pt_path = self.weight_dir.joinpath('last.pt')
+        torch.save(save_dict, last_pt_path)
 
-    def __len__(self):
-        return len(self.loss_arrs)
+        # ---------- save best model --------------
+        if fitness == self.best_fitness:
+            best_pt_path = self.weight_dir.joinpath('best.pt')
+            torch.save(save_dict, best_pt_path)
+
+        # ---------- save period model --------------
+        if (epoch + 1) % self.save_period == 0:
+            weights_pt_path = self.weight_dir.joinpath(f'weights{str(epoch)}.pt')
+            torch.save(save_dict, weights_pt_path)
+
+    # def append(self, *args):
+    #     for loss_arr, l in zip(self.loss_arrs, args):
+    #         loss_arr.append(l)
+    #
+    # def loss_plot(self, start, log_num=None):
+    #     for loss, path in zip(self.loss_arrs, self.mode_dir):
+    #         log_num = self.log_num if log_num is None else log_num
+    #
+    #         if len(loss) > log_num:
+    #             iters = range(start, len(loss) + start)
+    #             plt.figure()
+    #             plt.plot(iters, loss, 'red', linewidth=2, label='train loss')
+    #             try:
+    #                 num = 5 if len(loss) < 25 else 10
+    #                 plt.plot(iters, savgol_filter(loss, num, 3), 'green', linestyle='--', linewidth=2,
+    #                          label='smooth train loss')
+    #             except Exception:
+    #                 pass
+    #             else:
+    #                 plt.grid(True)
+    #                 plt.xlabel('Epoch')
+    #                 plt.ylabel('Loss')
+    #                 plt.legend(loc="upper right")
+    #
+    #                 plt.savefig(os.path.join(path, "epoch_loss.png"))
+    #
+    #                 plt.cla()
+    #                 plt.close("all")

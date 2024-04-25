@@ -1,15 +1,20 @@
 import os
+from pathlib import Path
+from omegaconf import OmegaConf
 
 import torch
 from torch.utils.data import DataLoader
-from ops.dataset.voc_dataset import VOCDetection, CLASSES_NAME
-from ops.dataset.utils import detect_collate_fn
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+
 import cv2
 import numpy as np
-import ops.cv.io as io
+
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+from ops.dataset.voc_dataset import VOCDetection
+from ops.dataset.utils import detect_collate_fn
 from ops.transform.resize_maker import ResizeLongestPaddingShort
+import ops.cv.io as io
 from utils.logging import LOGGER, colorstr
 
 np.random.seed(0)
@@ -53,10 +58,13 @@ class MyDataSet(VOCDetection):
         return image / 255., target
 
 
-def get_loader(args):
+def get_loader(hyp, opt):
+    data = OmegaConf.load(Path(opt.data))
     train_transform = A.Compose([
-        A.Affine(scale={"x": (1 - 0.5, 1 + 0.5), "y": (1 - 0.5, 1 + 0.5)},
-                 translate_percent={"x": (0.5 - 0.1, 0.5 + 0.1), "y": (0.5 - 0.1, 0.5 + 0.1)},
+        A.Affine(scale={"x": (1 - hyp.scale, 1 + hyp.scale),
+                        "y": (1 - hyp.scale, 1 + hyp.scale)},
+                 translate_percent={"x": (0.5 - hyp.translate, 0.5 + hyp.translate),
+                                    "y": (0.5 - hyp.translate, 0.5 + hyp.translate)},
                  cval=114,
                  p=0.9),
         A.Blur(p=0.01),
@@ -72,32 +80,32 @@ def get_loader(args):
     val_transform = A.Compose([
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
 
-    train_dataset = MyDataSet(args.train.dataset.path,
+    train_dataset = MyDataSet(Path(data.train),
                               'car_train',
-                              args,
+                              opt.image_size,
+                              data.names,
                               train_transform)
 
-    val_dataset = MyDataSet(args.val.dataset.path,
+    val_dataset = MyDataSet(Path(data.val),
                             'car_val',
-                            args,
+                            opt.image_size,
+                            data.names,
                             val_transform)
 
-    nw = min(3, args.train.batch_size)
-
     train_loader = DataLoader(dataset=train_dataset,
-                              batch_size=args.train.batch_size,
+                              batch_size=opt.batch_size,
                               shuffle=False,
                               collate_fn=detect_collate_fn,
                               persistent_workers=True,
-                              num_workers=nw,
+                              num_workers=opt.workers,
                               drop_last=True)
 
     val_loader = DataLoader(dataset=val_dataset,
-                            batch_size=args.val.batch_size,
+                            batch_size=opt.batch_size,
                             shuffle=False,
                             collate_fn=detect_collate_fn,
                             persistent_workers=True,
-                            num_workers=nw,
+                            num_workers=opt.workers,
                             drop_last=True)
 
     return train_loader, val_loader

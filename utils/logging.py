@@ -2,6 +2,10 @@ import logging
 import logging.config
 import os
 import platform
+import inspect
+from typing import Optional
+from pathlib import Path
+
 
 LOGGING_NAME = "yolo"
 
@@ -70,3 +74,18 @@ def colorstr(*input):
         "underline": "\033[4m",
     }
     return "".join(colors[x] for x in args) + f"{string}" + colors["end"]
+
+
+def print_args(args: Optional[dict] = None, show_file=True, show_func=False):
+    # Print function arguments (optional args dict)
+    x = inspect.currentframe().f_back  # previous frame
+    file, _, func, _, _ = inspect.getframeinfo(x)
+    if args is None:  # get args automatically
+        args, _, _, frm = inspect.getargvalues(x)
+        args = {k: v for k, v in frm.items() if k in args}
+    try:
+        file = Path(file).resolve().relative_to('./').with_suffix("")
+    except ValueError:
+        file = Path(file).stem
+    s = (f"{file}: " if show_file else "") + (f"{func}: " if show_func else "")
+    LOGGER.info(colorstr(s) + ", ".join(f"{k}={v}" for k, v in args.items()))

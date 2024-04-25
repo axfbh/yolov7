@@ -1,13 +1,9 @@
 import torch
 import os
-from typing import List
 import torch.nn as nn
 from torch.nn.parameter import is_lazy
 from utils.logging import LOGGER, colorstr
-
-
-def _check_file_exits(path):
-    return not isinstance(path, bool) and os.path.isfile(path)
+from pathlib import Path
 
 
 @torch.no_grad()
@@ -29,7 +25,7 @@ def _load_from(model, weight):
     model.load_state_dict(weight)
 
 
-def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5):
+def smart_optimizer(model, name: str = "Adam", lr=0.001, momentum=0.9, decay=1e-5):
     g = [], [], []  # optimizer parameter groups
     bn = tuple(v for k, v in nn.__dict__.items() if "Norm" in k)  # normalization layers, i.e. BatchNorm2d()
     for v in model.modules():
@@ -62,10 +58,10 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5):
     return optimizer
 
 
-def smart_resume(model, optimizer, save_path=None):
+def smart_resume(model, optimizer, save_path: Path = None):
     last_epoch = -1
     # ------------ resume model ------------
-    if _check_file_exits(save_path):
+    if save_path.is_file():
         save_dict = torch.load(save_path, map_location='cpu')
 
         last_epoch = save_dict.get('last_epoch', None)
@@ -92,7 +88,7 @@ def smart_resume(model, optimizer, save_path=None):
             )
 
     # ------------ resume optimizer ------------
-    if _check_file_exits(save_path):
+    if save_path.is_file():
         save_dict = torch.load(save_path, map_location='cpu')
 
         optim_param = save_dict.get('optimizer', None)

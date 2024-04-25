@@ -7,45 +7,19 @@ import numpy as np
 from torch.utils.data import Dataset
 import ops.cv.io as io
 
-CLASSES_NAME = (
-    "__background__",
-    "aeroplane",
-    "bicycle",
-    "bird",
-    "boat",
-    "bottle",
-    "bus",
-    "car",
-    "cat",
-    "chair",
-    "cow",
-    "diningtable",
-    "dog",
-    "horse",
-    "motorbike",
-    "person",
-    "pottedplant",
-    "sheep",
-    "sofa",
-    "train",
-    "tvmonitor",
-)
-
-name2id = dict(zip(CLASSES_NAME, range(len(CLASSES_NAME))))
-
-id2name = {v: k for k, v in name2id.items()}
-
 
 class VOCDetection(Dataset):
 
-    def __init__(self, root_dir, image_set, args, transform=None):
+    def __init__(self, root_dir, image_set, image_size, class_name, transform=None):
         super(VOCDetection, self).__init__()
 
         self._annopath = os.path.join(root_dir, "Annotations", "%s.xml")
         self._imgpath = os.path.join(root_dir, "JPEGImages", "%s.jpg")
         self._imgsetpath = os.path.join(root_dir, "ImageSets", "Main", "%s.txt")
 
-        self.image_size = args.image_size
+        self.name2id = dict(zip(class_name.values(), range(len(class_name))))
+
+        self.image_size = image_size
 
         self.cate = image_set.split('_')[0]
 
@@ -79,7 +53,7 @@ class VOCDetection(Dataset):
 
             if name == self.cate:
                 bbox_params.append(box)
-                classes.append(name2id[name])
+                classes.append(self.name2id[name])
 
         bbox_params = np.array(bbox_params, dtype=np.float32)
         return bbox_params, classes

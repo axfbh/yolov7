@@ -1,43 +1,50 @@
-from model.modeling import get_model
-from data_loader import get_loader
-import torch
-from utils.epoch_utils import train_epoch, val_epoch
-from utils.history_collect import save_model, HistoryLoss
-from omegaconf import OmegaConf
 import os
-from utils.model_freeze import FreezeLayer
+import argparse
+from pathlib import Path
+from omegaconf import OmegaConf
+
+import torch
+
+from models.modeling import get_model
+from data_loader import get_loader
+
 from ops.loss.yolo_loss import YoloLossV7
+from utils.epoch_utils import train_epoch, val_epoch
+from utils.history_collect import History
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
 from utils.torch_utils import smart_optimizer, smart_resume
-from utils.logging import LOGGER, colorstr
+from utils.logging import LOGGER, colorstr, print_args
 
 
-def setup(args):
-    model = get_model(args)
-    model.to(args.train.device)
-    return model
+# hyp: hyper parameter
+# opt: options
+def train(train_loader, val_loader, hyp, opt):
+    cfg = OmegaConf.load(Path(opt.cfg))
 
+    device = opt.device
 
-def train(model, train_loader, val_loader, args):
-    nb = args.train.batch_size
+    model = get_model(cfg)
+    model.to(device)
+
+    nb = opt.batch_size
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / nb), 1)
 
     # -------- 梯度优化器 --------
     optimizer = smart_optimizer(model,
                                 'SGD',
-                                args.solver.lr,
-                                args.sgd.momentum,
-                                args.solver.weight_decay)
+                                hyp.lr,
+                                hyp.momentum,
+                                hyp.weight_decay)
 
     # -------- 梯度优化器 --------
     scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # -------- 模型权重加载器 --------
-    last_epoch = smart_resume(model, optimizer, args.model.weights.resume)
+    last_epoch = smart_resume(model, optimizer, Path(opt.resume))
 
     start_epoch = last_epoch + 1
-    end_epoch = args.iter_max + 1
+    end_epoch = opt.epochs + 1
 
     # -------- 学习率优化器 and 学习率预热器 --------
     # scheduler = WarmupMultiStepLR(optimizer,
@@ -51,48 +58,72 @@ def train(model, train_loader, val_loader, args):
     scheduler = WarmupCosineLR(optimizer,
                                end_epoch,
                                last_epoch,
-                               warmup_method=args.warmup.warmup_method,
-                               warmup_factor=args.warmup.warmup_factor,
-                               warmup_iters=args.warmup.warmup_iters)
+                               warmup_method=hyp.warmup_method,
+                               warmup_factor=hyp.warmup_factor,
+                               warmup_iters=hyp.warmup_iters)
 
     # -------- 每个 epoch 的 loss 记录工具 --------
-    history_loss = HistoryLoss(args.log_info.path,
-                               args.log_info.num,
-                               modes=['train', 'val'])
+    history = History(project_dir=Path(opt.project),
+                      name=opt.name,
+                      mode='train',
+                      save_period=opt.save_period,
+                      yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
     for epoch in range(start_epoch, end_epoch):
         train_metric = train_epoch(model=model,
                                    loader=train_loader,
-                                   device=args.train.device,
+                                   device=device,
                                    epoch=epoch,
                                    optimizer=optimizer,
-                                   criterion=YoloLossV7(args, g=0.5, thresh=4),
+                                   criterion=YoloLossV7(cfg, device, g=0.5, thresh=4),
                                    scaler=scaler,
                                    accumulate=accumulate)
 
         val_metric = val_epoch(model=model,
                                loader=val_loader,
-                               device=args.train.device,
+                               device=device,
                                epoch=epoch,
-                               criterion=YoloLossV7(args, g=0.5, thresh=4))
+                               criterion=YoloLossV7(cfg, device, g=0.5, thresh=4))
 
         scheduler.step()
 
-        save_model(model, optimizer, train_metric)
-        history_loss.append(train_metric['lbox'].avg,
-                            val_metric['map50'])
-        history_loss.loss_plot(start=start_epoch)
+        history.save(model, optimizer, epoch, val_metric['map50'])
+
+
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    # -------------- 参数文件 --------------
+    parser.add_argument("--cfg", type=str, default="models/yolov7l.yaml", help="model.yaml path")
+    parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
+    parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
+
+    # -------------- 参数值 --------------
+    parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
+    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs, -1 for autobatch")
+    parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
+    parser.add_argument("--resume", default='./logs/exp', help="resume most recent training")
+    parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    parser.add_argument("--optimizer", type=str, choices=["SGD", "Adam", "AdamW"], default="SGD", help="optimizer")
+    parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
+    parser.add_argument("--project", default="./logs", help="save to project/name")
+    parser.add_argument("--name", default="exp", help="save to project/name")
+    parser.add_argument("--cos-lr", action="store_true", help="cosine LR scheduler")
+    parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
+    parser.add_argument("--save-period", type=int, default=-1, help="Save checkpoint every x epochs (disabled if < 1)")
+    parser.add_argument("--local_rank", type=int, default=-1, help="Automatic DDP Multi-GPU argument, do not modify")
+
+    return parser.parse_args()
 
 
 def main():
-    args = OmegaConf.load('./config/config.yaml')
-    LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in args.items()))
+    opt = parse_opt()
+    print_args(vars(opt))
 
-    model = setup(args)
+    hyp = OmegaConf.load(Path(opt.hyp))
 
-    train_loader, val_loader = get_loader(args)
+    train_loader, val_loader = get_loader(hyp, opt)
 
-    train(model, train_loader, val_loader, args)
+    train(train_loader, val_loader, hyp, opt)
 
 
 if __name__ == '__main__':

@@ -21,18 +21,18 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
 class YoloLoss(nn.Module):
     anchors = None
 
-    def __init__(self, args, thresh=0.6):
+    def __init__(self, cfg, device, thresh=0.6):
         super(YoloLoss, self).__init__()
         self.thresh = thresh
         self.cp, self.cn = smooth_BCE(eps=0.0)
-        self.num_classes = args.num_classes
-        self.device = args.train.device
+        self.num_classes = cfg.nc
+        self.device = device
 
         # yolo 小grid大anchor，大grid小anchor
-        anchors = args.anchors
+        anchors = cfg.anchors
         self.nl = len(anchors)
         self.na = len(anchors[0]) // 2
-        self.anchors = torch.tensor(anchors).view(self.nl, self.na, 2).to(self.device)
+        self.anchors = torch.tensor(anchors).view(self.nl, self.na, 2).to(device)
 
     @abstractmethod
     def build_targets(self, targets, grids, image_size):
@@ -270,8 +270,8 @@ class YoloLossV4(YoloLoss):
 
 class YoloLossV7(YoloLoss):
 
-    def __init__(self, args, g=1.0, thresh=4):
-        super(YoloLossV7, self).__init__(args, thresh)
+    def __init__(self, cfg, device, g=1.0, thresh=4):
+        super(YoloLossV7, self).__init__(cfg, device, thresh)
         self.g = g
         self.balance = [4.0, 1.0, 0.4]
 

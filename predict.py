@@ -2,7 +2,7 @@ import os.path
 
 import numpy as np
 
-from model.modeling import get_model
+from models.modeling import get_model
 import torch
 
 import cv2
@@ -13,7 +13,6 @@ from albumentations.pytorch import ToTensorV2
 from ops.transform.resize_maker import ResizeLongestPaddingShort
 import ops.cv.io as io
 from ops.dataset.utils import batch_images
-from ops.dataset.voc_dataset import id2name
 from ops.detection.postprocess_utils import YoloPostProcess
 
 

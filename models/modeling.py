@@ -95,5 +95,5 @@ class YoloV7(nn.Module):
         return self.head([P3, P4, P5], H, W)
 
 
-def get_model(args):
-    return YoloV7(anchors=args.anchors, num_classes=args.num_classes, phi='l')
+def get_model(cfg):
+    return YoloV7(anchors=cfg.anchors, num_classes=cfg.nc, phi='l')
