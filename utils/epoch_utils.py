@@ -22,6 +22,7 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, scaler, accu
 
     stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
 
+    optimizer.zero_grad()
     for i, data in enumerate(stream):
         images, targets = data
 

@@ -13,6 +13,7 @@ from utils.epoch_utils import train_epoch, val_epoch
 from utils.history_collect import History
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
 from utils.logging import print_args
+from utils.torch_utils import de_parallel
 
 
 # hyp: hyper parameter
@@ -20,14 +21,22 @@ from utils.logging import print_args
 def train(train_loader, val_loader, hyp, opt):
     cfg = OmegaConf.load(Path(opt.cfg))
 
-    device = opt.device
-
-    model = get_model(cfg)
-    model.to(device)
-
     nb = opt.batch_size
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / nb), 1)
+
+    device = opt.device
+    model = get_model(cfg)
+    model.to(device)
+
+    m = de_parallel(model).head  # number of detection layers (to scale hyps)
+    nl = m.nl
+    nc = m.num_classes
+    hyp["box"] *= 3 / nl  # scale to layers
+    hyp["cls"] *= nc / 80 * 3 / nl  # scale to classes and layers
+    hyp["obj"] *= (max(opt.image_size[0], opt.image_size[1]) / 640) ** 2 * 3 / nl  # scale to image size and layers
+    hyp["label_smoothing"] = opt.label_smoothing
+    model.hyp = hyp
 
     # -------- 梯度优化器 --------
     optimizer = smart_optimizer(model,
@@ -67,7 +76,7 @@ def train(train_loader, val_loader, hyp, opt):
                                    device=device,
                                    epoch=epoch,
                                    optimizer=optimizer,
-                                   criterion=YoloLossV7(cfg, device, g=0.5, thresh=4),
+                                   criterion=YoloLossV7(model),
                                    scaler=scaler,
                                    accumulate=accumulate)
 
@@ -75,7 +84,7 @@ def train(train_loader, val_loader, hyp, opt):
                                loader=val_loader,
                                device=device,
                                epoch=epoch,
-                               criterion=YoloLossV7(cfg, device, g=0.5, thresh=4))
+                               criterion=YoloLossV7(model))
 
         scheduler.step()
 

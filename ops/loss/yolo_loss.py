@@ -2,37 +2,33 @@ import torch
 import torch.nn as nn
 from abc import abstractmethod
 from ops.iou import bbox_iou, iou_loss
+from ops.loss.basic_loss import BasicLoss
+from ops.loss.utils import smooth_BCE
+from utils.torch_utils import de_parallel
 from math import ceil
 
 torch.set_printoptions(precision=4, sci_mode=False)
 
 
-def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
-    """用在ComputeLoss类中
-    标签平滑操作  [1, 0]  =>  [0.95, 0.05]
-    :params eps: 平滑参数
-    :return positive, negative label smoothing BCE targets  两个值分别代表正样本和负样本的标签取值
-            原先的正样本=1 负样本=0 改为 正样本=1.0 - 0.5 * eps  负样本=0.5 * eps
-    """
-    # return positive, negative label smoothing BCE targets
-    return 1.0 - 0.5 * eps, 0.5 * eps
+class YoloLoss(BasicLoss):
+    def __init__(self, model):
+        super(YoloLoss, self).__init__(model)
 
-
-class YoloLoss(nn.Module):
-    anchors = None
-
-    def __init__(self, cfg, device, thresh=0.6):
-        super(YoloLoss, self).__init__()
-        self.thresh = thresh
-        self.cp, self.cn = smooth_BCE(eps=0.0)
-        self.num_classes = cfg.nc
-        self.device = device
+        m = de_parallel(model).head
+        self.cp, self.cn = smooth_BCE(eps=self.hyp.get('label_smoothing', 0.0))
 
         # yolo 小grid大anchor，大grid小anchor
-        anchors = cfg.anchors
-        self.nl = len(anchors)
-        self.na = len(anchors[0]) // 2
-        self.anchors = torch.tensor(anchors).view(self.nl, self.na, 2).to(device)
+        self.anchors = m.anchors
+        self.nl = m.nl
+        self.na = m.na
+        self.num_classes = m.num_classes
+        self.g = self.hyp.get('g', 0.5)
+
+        self.balance = [4.0, 1.0, 0.4]
+
+        # Define criteria
+        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
+        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
 
     @abstractmethod
     def build_targets(self, targets, grids, image_size):
@@ -66,7 +62,7 @@ class YoloLossV3(YoloLoss):
                 iou, a = iou.max(0)
 
                 # ------------ 删除小于阈值的框 -------------
-                j = iou.view(-1) > self.thresh
+                j = iou.view(-1) > self.hyp['anchor_t']
                 tb, a = tb[j], a[j]
 
                 tb = torch.cat([tb, a[:, None]], -1)
@@ -95,7 +91,9 @@ class YoloLossV3(YoloLoss):
         return tcls, txy, twh, indices
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-2:], device=self.device) for pi in preds]
+        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
+
+        bs = preds[0].shape[0]
 
         MSE = nn.MSELoss()
         BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
@@ -109,9 +107,6 @@ class YoloLossV3(YoloLoss):
         tcls, txy, twh, indices = self.build_targets(targets, grids, image_size)
 
         for i, pi in enumerate(preds):
-            pi = pi.reshape(pi.size(0), self.na, -1, grids[i][0], grids[i][1])
-            pi = pi.permute(0, 1, 3, 4, 2).contiguous()
-
             b, a, gj, gi = indices[i]
 
             tobj = torch.zeros_like(pi[..., 0])
@@ -141,12 +136,12 @@ class YoloLossV3(YoloLoss):
             # ------------ 计算 置信度 loss ------------
             lobj += BCEobj(pi[..., 4], tobj)
 
-        lxy *= 11.3
-        lwh *= 0.87
-        lobj *= 69.2
-        lcls *= 32
+        lxy *= self.hyp["lxy"]
+        lwh *= self.hyp["lwh"]
+        lobj *= self.hyp["obj"]
+        lcls *= self.hyp["cls"]
 
-        loss = lxy + lwh + lobj + lcls
+        loss = (lxy + lwh + lobj + lcls) * bs
 
         return loss, lxy.detach(), lwh.detach(), lobj.detach(), lcls.detach()
 
@@ -186,7 +181,7 @@ class YoloLossV4(YoloLoss):
                 iou, a = iou.max(0)
 
                 # ------------ 删除小于阈值的框 -------------
-                j = iou.view(-1) > self.thresh
+                j = iou.view(-1) > self.hyp['anchor_t']
                 tb, a = tb[j], a[j]
 
                 tb = torch.cat([tb, a[:, None]], -1)
@@ -217,7 +212,9 @@ class YoloLossV4(YoloLoss):
         return tcls, tbox, indices, anch
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-2:], device=self.device) for pi in preds]
+        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
+
+        bs = preds[0].shape[0]
 
         BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
         BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
@@ -229,9 +226,6 @@ class YoloLossV4(YoloLoss):
         tcls, tbox, indices, anchors = self.build_targets(targets, grids, image_size)
 
         for i, pi in enumerate(preds):
-            pi = pi.reshape(pi.size(0), self.na, -1, grids[i][0], grids[i][1])
-            pi = pi.permute([0, 1, 3, 4, 2]).contiguous()
-
             b, a, gj, gi = indices[i]
 
             tobj = torch.zeros_like(pi[..., 0])
@@ -259,25 +253,16 @@ class YoloLossV4(YoloLoss):
 
             lobj += BCEobj(pi[..., 4], tobj)
 
-        lbox *= 3.54
-        lobj *= 64.3
-        lcls *= 37.4
+        lbox *= self.hyp["box"]
+        lobj *= self.hyp["obj"]
+        lcls *= self.hyp["cls"]
 
-        loss = lbox + lobj + lcls
+        loss = (lbox + lobj + lcls) * bs
 
         return loss, lbox.detach(), lobj.detach(), lcls.detach()
 
 
 class YoloLossV7(YoloLoss):
-
-    def __init__(self, cfg, device, g=1.0, thresh=4):
-        super(YoloLossV7, self).__init__(cfg, device, thresh)
-        self.g = g
-        self.balance = [4.0, 1.0, 0.4]
-
-        # Define criteria
-        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
-        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.], device=self.device))
 
     def build_targets(self, targets, grids, image_size):
         """
@@ -340,7 +325,7 @@ class YoloLossV7(YoloLoss):
 
                 #  ------------ 选择最大的长宽比，删除小于阈值的框 -------------
                 r = tb[..., 6:8] / anchor[:, None]
-                j = torch.max(r, 1 / r).max(2)[0] < self.thresh
+                j = torch.max(r, 1 / r).max(2)[0] < self.hyp['anchor_t']
                 tb = tb[j]
 
                 t = torch.cat([t, tb], 0)
@@ -411,9 +396,9 @@ class YoloLossV7(YoloLoss):
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss
 
-        lbox *= 0.05
-        lobj *= 1
-        lcls *= 0.125
+        lbox *= self.hyp["box"]
+        lobj *= self.hyp["obj"]
+        lcls *= self.hyp["cls"]
 
         loss = (lbox + lobj + lcls) * bs
 
