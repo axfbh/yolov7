@@ -8,7 +8,7 @@ import os
 from utils.model_freeze import FreezeLayer
 from ops.loss.yolo_loss import YoloLossV7
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
-from utils.weight_inject import smart_optimizer, load_model
+from utils.torch_utils import smart_optimizer, load_model
 from utils.logging import LOGGER, colorstr
 
 
