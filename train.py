@@ -93,10 +93,11 @@ def parse_opt():
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
-    parser.add_argument("--resume", default='./logs/exp', help="resume most recent training")
+    parser.add_argument("--resume", default='./logs/train/exp1/weights/last.pt', help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--optimizer", type=str, choices=["SGD", "Adam", "AdamW"], default="SGD", help="optimizer")
-    parser.add_argument("--scheduler", type=str, choices=["Cosine", "MultiStep", "Polynomial"], default="Cosine",help="scheduler")
+    parser.add_argument("--scheduler", type=str, choices=["Cosine", "MultiStep", "Polynomial"], default="Cosine",
+                        help="scheduler")
     parser.add_argument("--workers", type=int, default=3, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")

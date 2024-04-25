@@ -98,50 +98,41 @@ def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1,
 
 def smart_resume(model, optimizer, save_path: Path = None):
     last_epoch = -1
+    if not save_path.is_file():
+        LOGGER.warning(
+            f"{colorstr('Warning:')} path: {save_path} is not exist"
+        )
+        return last_epoch
     # ------------ resume model ------------
-    if save_path.is_file():
-        save_dict = torch.load(save_path, map_location='cpu')
+    save_dict = torch.load(save_path, map_location='cpu')
 
-        last_epoch = save_dict.get('last_epoch', None)
+    last_epoch = save_dict.get('last_epoch', last_epoch)
 
-        # ---------- 加载模型权重 ----------
-        model_param = save_dict['model']
-        _load_from(model, model_param)
+    # ---------- 加载模型权重 ----------
+    model_param = save_dict['model']
+    _load_from(model, model_param)
 
-        # ---------- epoch 识别 ----------
-        resume_info = last_epoch if last_epoch is not None else save_path.name.strip('\n\t').split('_')[2]
-        try:
-            last_epoch = int(resume_info)
-        except TypeError:
-            last_epoch = -1
-            LOGGER.warning(
-                f"{colorstr('Warning')} cannot loaded the previous last_epoch , but it doesnt affect the model working."
-            )
-            LOGGER.info(
-                f"{colorstr('model loaded:')} pate {save_path} -> {model._get_name()}"
-            )
-        else:
-            LOGGER.info(
-                f"{colorstr('model loaded:')} path: {save_path} last_epoch: {last_epoch} -> {model._get_name()}"
-            )
+    # ---------- epoch 识别 ----------
+    LOGGER.info(
+        f"{colorstr('model loaded:')} path: {save_path} last_epoch: {last_epoch} -> {model._get_name()}"
+    )
 
     # ------------ resume optimizer ------------
-    if save_path.is_file():
-        save_dict = torch.load(save_path, map_location='cpu')
+    save_dict = torch.load(save_path, map_location='cpu')
 
-        optim_param = save_dict.get('optimizer', None)
-        optim_name = save_dict.get('optimizer_name', None)
+    optim_param = save_dict.get('optimizer', None)
+    optim_name = save_dict.get('optimizer_name', None)
 
-        if optim_name == optimizer.__class__.__name__:
-            optimizer.load_state_dict(optim_param)
-            for param in optimizer.param_groups:
-                LOGGER.info(
-                    f"{colorstr('optimizer loaded:')} {type(optimizer).__name__}(lr={param['lr']}) with parameter groups"
-                    f"{len(param)} weight(decay={param['weight_decay']})"
-                )
-            return optimizer
-        else:
-            LOGGER.warning(
-                f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
+    if optim_name == optimizer.__class__.__name__:
+        optimizer.load_state_dict(optim_param)
+        for param in optimizer.param_groups:
+            LOGGER.info(
+                f"{colorstr('optimizer loaded:')} {type(optimizer).__name__}(lr={param['lr']}) with parameter groups"
+                f"{len(param)} weight(decay={param['weight_decay']})"
             )
+    else:
+        LOGGER.warning(
+            f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
+        )
+
     return last_epoch
