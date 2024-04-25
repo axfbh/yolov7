@@ -85,6 +85,8 @@ class ElanDarkNet53(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(1024, num_classes)
 
+        self.reset_parameters()
+
     def reset_parameters(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
