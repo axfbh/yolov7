@@ -11,7 +11,6 @@ from data_loader import get_loader
 from ops.loss.yolo_loss import YoloLossV7
 from utils.epoch_utils import train_epoch, val_epoch
 from utils.history_collect import History
-from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
 from utils.logging import print_args
 
@@ -92,7 +91,7 @@ def parse_opt():
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs, -1 for autobatch")
+    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", default='./logs/exp', help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")

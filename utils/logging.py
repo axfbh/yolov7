@@ -7,7 +7,7 @@ from typing import Optional
 from pathlib import Path
 
 
-LOGGING_NAME = "yolo"
+LOGGING_NAME = "cgm"
 
 
 def set_logging(name=LOGGING_NAME, verbose=True):

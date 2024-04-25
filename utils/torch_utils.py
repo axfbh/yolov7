@@ -109,7 +109,7 @@ def smart_resume(model, optimizer, save_path: Path = None):
         _load_from(model, model_param)
 
         # ---------- epoch 识别 ----------
-        resume_info = last_epoch if last_epoch is not None else save_path.strip('\n\t').split('_')[2]
+        resume_info = last_epoch if last_epoch is not None else save_path.name.strip('\n\t').split('_')[2]
         try:
             last_epoch = int(resume_info)
         except TypeError:
