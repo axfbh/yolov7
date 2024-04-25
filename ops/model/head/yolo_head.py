@@ -19,7 +19,7 @@ class YoloV7Head(nn.Module):
 
         self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
 
-        # self.reset_parameters()
+        self.reset_parameters()
 
     def reset_parameters(self):
         stride = [8, 16, 32]

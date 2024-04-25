@@ -24,8 +24,15 @@ def train(model, train_loader, val_loader, args):
     accumulate = max(round(nbs / nb), 1)
 
     # -------- 梯度优化器 --------
-    optimizer = smart_optimizer(model, 'SGD', args.solver.lr, args.sgd.momentum, args.solver.weight_decay,
+    optimizer = smart_optimizer(model,
+                                'SGD',
+                                args.solver.lr,
+                                args.sgd.momentum,
+                                args.solver.weight_decay,
                                 args.model.weights.resume)
+
+    # -------- 梯度优化器 --------
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # -------- 模型权重加载器 --------
     model, last_epoch = load_model(model, args.model.weights.resume)
@@ -61,6 +68,7 @@ def train(model, train_loader, val_loader, args):
                                    epoch=epoch,
                                    optimizer=optimizer,
                                    criterion=YoloLossV7(args, g=0.5, thresh=4),
+                                   scaler=scaler,
                                    accumulate=accumulate)
 
         val_metric = val_epoch(model=model,

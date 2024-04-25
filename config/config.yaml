@@ -42,7 +42,7 @@ weight:
 train:
   dataset:
     path: 'D:\cgm\dataset\VOC2007'
-  batch_size: 3
+  batch_size: 4
   device: 'cuda'
 
 val:

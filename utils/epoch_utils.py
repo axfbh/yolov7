@@ -8,7 +8,7 @@ import numpy as np
 from utils.logging import LOGGER
 
 
-def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1):
+def train_epoch(model, loader, device, epoch, optimizer, criterion, scaler, accumulate=1):
     model.train()
 
     metric = {
@@ -34,11 +34,14 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, accumulate=1
 
         loss, lbox, lobj, lcls = criterion(preds, targets.to(device), image_size.to(device))
 
-        loss.backward()
+        scaler.scale(loss).backward()
 
         # ------------- 梯度累积 -------------
         if (i + 1) % accumulate == 0 or (i + 1) == len(loader):
-            optimizer.step()
+            scaler.unscale_(optimizer)  # unscale gradients
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+            scaler.step(optimizer)  # optimizer.step
+            scaler.update()
             optimizer.zero_grad()
 
         metric['lbox'].update(lbox.item())
