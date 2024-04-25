@@ -400,7 +400,8 @@ class YoloLossV7(YoloLoss):
 
                 lbox += (1 - iou).mean()
 
-                tobj[b, a, gj, gi] = iou.detach().clamp(0).type(tobj.dtype)
+                iou = iou.detach().clamp(0).type(tobj.dtype)
+                tobj[b, a, gj, gi] = iou  # iou ratio
 
                 if self.num_classes > 1:
                     t = torch.full_like(ps[:, 5:], self.cn)  # targets
