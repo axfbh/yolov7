@@ -8,7 +8,7 @@ import os
 from utils.model_freeze import FreezeLayer
 from ops.loss.yolo_loss import YoloLossV7
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
-from utils.torch_utils import smart_optimizer, load_model
+from utils.torch_utils import smart_optimizer, smart_resume
 from utils.logging import LOGGER, colorstr
 
 
@@ -28,14 +28,13 @@ def train(model, train_loader, val_loader, args):
                                 'SGD',
                                 args.solver.lr,
                                 args.sgd.momentum,
-                                args.solver.weight_decay,
-                                args.model.weights.resume)
+                                args.solver.weight_decay)
 
     # -------- 梯度优化器 --------
     scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # -------- 模型权重加载器 --------
-    model, last_epoch = load_model(model, args.model.weights.resume)
+    last_epoch = smart_resume(model, optimizer, args.model.weights.resume)
 
     start_epoch = last_epoch + 1
     end_epoch = args.iter_max + 1

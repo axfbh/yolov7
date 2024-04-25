@@ -29,7 +29,7 @@ def _load_from(model, weight):
     model.load_state_dict(weight)
 
 
-def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save_path=None):
+def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5):
     g = [], [], []  # optimizer parameter groups
     bn = tuple(v for k, v in nn.__dict__.items() if "Norm" in k)  # normalization layers, i.e. BatchNorm2d()
     for v in model.modules():
@@ -55,26 +55,6 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save
     optimizer.add_param_group({"params": g[0], "weight_decay": decay})  # add g0 with weight_decay
     optimizer.add_param_group({"params": g[1], "weight_decay": 0.0})  # add g1 (BatchNorm2d weights)
 
-    # ------------ resume optimizer ------------
-    if _check_file_exits(save_path):
-        save_dict = torch.load(save_path, map_location='cpu')
-
-        optim_param = save_dict.get('optimizer', None)
-        optim_name = save_dict.get('optimizer_name', None)
-
-        if optim_name == optimizer.__class__.__name__:
-            optimizer.load_state_dict(optim_param)
-            for param in optimizer.param_groups:
-                LOGGER.info(
-                    f"{colorstr('optimizer loaded:')} {type(optimizer).__name__}(lr={param['lr']}) with parameter groups"
-                    f"{len(param)} weight(decay={param['weight_decay']})"
-                )
-            return optimizer
-        else:
-            LOGGER.warning(
-                f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
-            )
-
     LOGGER.info(
         f"{colorstr('optimizer:')} {type(optimizer).__name__}(lr={lr}) with parameter groups "
         f'{len(g[1])} weight(decay=0.0), {len(g[0])} weight(decay={decay}), {len(g[2])} bias'
@@ -82,8 +62,9 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5, save
     return optimizer
 
 
-def load_model(model, save_path=None):
+def smart_resume(model, optimizer, save_path=None):
     last_epoch = -1
+    # ------------ resume model ------------
     if _check_file_exits(save_path):
         save_dict = torch.load(save_path, map_location='cpu')
 
@@ -109,4 +90,24 @@ def load_model(model, save_path=None):
             LOGGER.info(
                 f"{colorstr('model loaded:')} path: {save_path} last_epoch: {last_epoch} -> {model._get_name()}"
             )
-    return model, last_epoch
+
+    # ------------ resume optimizer ------------
+    if _check_file_exits(save_path):
+        save_dict = torch.load(save_path, map_location='cpu')
+
+        optim_param = save_dict.get('optimizer', None)
+        optim_name = save_dict.get('optimizer_name', None)
+
+        if optim_name == optimizer.__class__.__name__:
+            optimizer.load_state_dict(optim_param)
+            for param in optimizer.param_groups:
+                LOGGER.info(
+                    f"{colorstr('optimizer loaded:')} {type(optimizer).__name__}(lr={param['lr']}) with parameter groups"
+                    f"{len(param)} weight(decay={param['weight_decay']})"
+                )
+            return optimizer
+        else:
+            LOGGER.warning(
+                f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
+            )
+    return last_epoch
