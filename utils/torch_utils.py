@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.nn.parameter import is_lazy
 from utils.logging import LOGGER, colorstr
 from pathlib import Path
+from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR, WarmupPolynomialLR
 
 
 @torch.no_grad()
@@ -56,6 +57,43 @@ def smart_optimizer(model, name: str = "Adam", lr=0.001, momentum=0.9, decay=1e-
         f'{len(g[1])} weight(decay=0.0), {len(g[0])} weight(decay={decay}), {len(g[2])} bias'
     )
     return optimizer
+
+
+def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1,
+                    warmup_method='linear',
+                    warmup_factor=0.1,
+                    warmup_iters=3,
+                    **kwargs):
+    if name == "Cosine":
+        scheduler = WarmupCosineLR(optimizer,
+                                   last_epoch=last_epoch,
+                                   warmup_method=warmup_method,
+                                   warmup_factor=warmup_factor,
+                                   warmup_iters=warmup_iters,
+                                   **kwargs)
+    elif name == "MultiStep":
+        scheduler = WarmupMultiStepLR(optimizer,
+                                      last_epoch=last_epoch,
+                                      warmup_method=warmup_method,
+                                      warmup_factor=warmup_factor,
+                                      warmup_iters=warmup_iters,
+                                      **kwargs)
+    elif name == "Polynomial":
+        scheduler = WarmupPolynomialLR(optimizer,
+                                       last_epoch=last_epoch,
+                                       warmup_method=warmup_method,
+                                       warmup_factor=warmup_factor,
+                                       warmup_iters=warmup_iters,
+                                       **kwargs)
+    else:
+        raise NotImplementedError(f"Optimizer {name} not implemented.")
+
+    args = {k: v for k, v in kwargs.items()}
+    LOGGER.info(
+        f"{colorstr('scheduler:')} {type(scheduler).__name__}(warmup_method={warmup_method}, warmup_factor={warmup_factor},warmup_iters={warmup_iters}, "
+        + ", ".join(f"{k}={v}" for k, v in args.items()) + ")"
+    )
+    return scheduler
 
 
 def smart_resume(model, optimizer, save_path: Path = None):

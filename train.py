@@ -12,7 +12,7 @@ from ops.loss.yolo_loss import YoloLossV7
 from utils.epoch_utils import train_epoch, val_epoch
 from utils.history_collect import History
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR
-from utils.torch_utils import smart_optimizer, smart_resume
+from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
 from utils.logging import print_args
 
 
@@ -32,7 +32,7 @@ def train(train_loader, val_loader, hyp, opt):
 
     # -------- 梯度优化器 --------
     optimizer = smart_optimizer(model,
-                                'SGD',
+                                opt.optimizer,
                                 hyp.lr,
                                 hyp.momentum,
                                 hyp.weight_decay)
@@ -44,23 +44,16 @@ def train(train_loader, val_loader, hyp, opt):
     last_epoch = smart_resume(model, optimizer, Path(opt.resume))
 
     start_epoch = last_epoch + 1
-    end_epoch = opt.epochs + 1
+    end_epoch = opt.epochs
 
     # -------- 学习率优化器 and 学习率预热器 --------
-    # scheduler = WarmupMultiStepLR(optimizer,
-    #                               milestones=[140, 220],
-    #                               gamma=0.1,
-    #                               last_epoch=last_epoch,
-    #                               warmup_method=args.warmup.warmup_method,
-    #                               warmup_factor=args.warmup.warmup_factor,
-    #                               warmup_iters=args.warmup.warmup_iters)
-
-    scheduler = WarmupCosineLR(optimizer,
-                               end_epoch,
-                               last_epoch,
-                               warmup_method=hyp.warmup_method,
-                               warmup_factor=hyp.warmup_factor,
-                               warmup_iters=hyp.warmup_iters)
+    scheduler = smart_scheduler(optimizer,
+                                opt.scheduler,
+                                last_epoch,
+                                end_epoch=end_epoch,
+                                warmup_method=hyp.warmup_method,
+                                warmup_factor=hyp.warmup_factor,
+                                warmup_iters=hyp.warmup_iters)
 
     # -------- 每个 epoch 的 loss 记录工具 --------
     history = History(project_dir=Path(opt.project),
@@ -104,6 +97,7 @@ def parse_opt():
     parser.add_argument("--resume", default='./logs/exp', help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--optimizer", type=str, choices=["SGD", "Adam", "AdamW"], default="SGD", help="optimizer")
+    parser.add_argument("--scheduler", type=str, choices=["Cosine", "MultiStep", "Polynomial"], default="Cosine",help="scheduler")
     parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")

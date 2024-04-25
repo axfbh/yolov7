@@ -8,6 +8,7 @@ from typing import List
 
 import warnings
 
+
 def _get_warmup_factor_at_iter(method: str, iter: int, warmup_iters: int, warmup_factor: float) -> float:
     """
     Return the learning rate warmup factor at a specific iteration.
@@ -42,6 +43,11 @@ def get_cosine_lr(base_lr, warmup_factor, current_epoch, end_epoch):
     return base_lr * warmup_factor * 0.5 * (1.0 + math.cos(math.pi * current_epoch / end_epoch))
 
 
+def get_polynomial_lr(base_lr, warmup_factor, warmup_iters, power, current_epoch, end_epoch):
+    return base_lr * warmup_factor * ((1.0 - (current_epoch - warmup_iters) / (current_epoch - warmup_iters)) / (
+            1.0 - (current_epoch - 1 - warmup_iters) / (end_epoch - warmup_iters))) ** power
+
+
 class WarmupMultiStepLR(_LRScheduler):
     def __init__(self,
                  optimizer: Optimizer,
@@ -49,8 +55,8 @@ class WarmupMultiStepLR(_LRScheduler):
                  gamma: float = 0.1,
                  last_epoch=-1,
                  warmup_method: str = 'linear',
-                 warmup_factor: float = 0.001,
-                 warmup_iters: int = 10):
+                 warmup_factor: float = 0.1,
+                 warmup_iters: int = 3):
 
         if warmup_factor > 1.:
             raise ValueError('warmup_factor should be less than or equal to 1.')
@@ -59,7 +65,7 @@ class WarmupMultiStepLR(_LRScheduler):
             raise ValueError(
                 "Milestones should be a list of" " increasing integers. Got {}", milestones
             )
-
+        self._last_lr = None
         self.gamma = gamma
         self.milestones = milestones
         self.last_epoch = last_epoch
@@ -92,8 +98,8 @@ class WarmupCosineLR(_LRScheduler):
                  end_epoch,
                  last_epoch=-1,
                  warmup_method: str = "linear",
-                 warmup_factor: float = 0.001,
-                 warmup_iters: int = 10):
+                 warmup_factor: float = 0.1,
+                 warmup_iters: int = 3):
         self.end_epoch = end_epoch
         self._last_lr = None
         self.last_epoch = last_epoch
@@ -122,16 +128,21 @@ class WarmupCosineLR(_LRScheduler):
         return self.get_lr()
 
 
-class PolynomialLRWarmup(_LRScheduler):
-    def __init__(self, optimizer,
-                 warmup_iters,
-                 total_iters=5,
+class WarmupPolynomialLR(_LRScheduler):
+    def __init__(self,
+                 optimizer: Optimizer,
+                 end_epoch,
                  power=1.0,
                  last_epoch=-1,
-                 verbose=False):
-        super().__init__(optimizer, last_epoch=last_epoch, verbose=verbose)
-        self.total_iters = total_iters
+                 warmup_method: str = "linear",
+                 warmup_factor: float = 0.1,
+                 warmup_iters: int = 3):
+        super().__init__(optimizer, last_epoch=last_epoch)
+        self.end_epoch = end_epoch
+        self._last_lr = None
         self.power = power
+        self.warmup_factor = warmup_factor
+        self.warmup_method = warmup_method
         self.warmup_iters = warmup_iters
 
     def get_lr(self):
@@ -139,28 +150,18 @@ class PolynomialLRWarmup(_LRScheduler):
             warnings.warn("To get the last learning rate computed by the scheduler, "
                           "please use `get_last_lr()`.", UserWarning)
 
-        if self.last_epoch == 0 or self.last_epoch > self.total_iters:
-            return [group["lr"] for group in self.optimizer.param_groups]
+        warmup_factor = _get_warmup_factor_at_iter(self.warmup_method,
+                                                   self.last_epoch,
+                                                   self.warmup_iters,
+                                                   self.warmup_factor)
 
-        if self.last_epoch <= self.warmup_iters:
-            return [base_lr * self.last_epoch / self.warmup_iters for base_lr in self.base_lrs]
-        else:
-            l = self.last_epoch
-            w = self.warmup_iters
-            t = self.total_iters
-            decay_factor = ((1.0 - (l - w) / (t - w)) / (1.0 - (l - 1 - w) / (t - w))) ** self.power
-        return [group["lr"] * decay_factor for group in self.optimizer.param_groups]
+        return [get_polynomial_lr(base_lr,
+                                  warmup_factor,
+                                  self.warmup_iters,
+                                  self.power,
+                                  self.last_epoch,
+                                  self.end_epoch) for base_lr in self.optimizer.param_groups]
 
-    def _get_closed_form_lr(self):
-
-        if self.last_epoch <= self.warmup_iters:
-            return [
-                base_lr * self.last_epoch / self.warmup_iters for base_lr in self.base_lrs]
-        else:
-            return [
-                (
-                        base_lr * (1.0 - (min(self.total_iters, self.last_epoch) - self.warmup_iters) / (
-                        self.total_iters - self.warmup_iters)) ** self.power
-                )
-                for base_lr in self.base_lrs
-            ]
+    def _compute_values(self) -> List[float]:
+        # The new interface
+        return self.get_lr()
