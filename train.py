@@ -50,7 +50,7 @@ def train(train_loader, val_loader, hyp, opt, names):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # -------- 模型权重加载器 --------
-    last_epoch = smart_resume(model, optimizer, Path(opt.resume))
+    last_epoch, best_fitness = smart_resume(model, optimizer, Path(opt.resume))
 
     start_epoch = last_epoch + 1
     end_epoch = opt.epochs
@@ -69,6 +69,7 @@ def train(train_loader, val_loader, hyp, opt, names):
                       name=opt.name,
                       mode='train',
                       save_period=opt.save_period,
+                      best_fitness=best_fitness,
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
     for epoch in range(start_epoch, end_epoch):

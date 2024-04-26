@@ -97,7 +97,7 @@ def plot_images(images, targets, names):
     annotator = ImageDraw.Draw(im)
     size = int((h + w) * ns * 0.01)  # font size
     font = ImageFont.truetype('./Arial.ttf', size)
-    for i in range(i + 1):
+    for i in range(min(max_subplots, len(images)) + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
         if len(targets) > 0:
