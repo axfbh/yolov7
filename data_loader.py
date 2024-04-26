@@ -33,7 +33,7 @@ class MyDataSet(VOCDetection):
 
         sample = self.transform(image=resize_sample['image'], bboxes=resize_sample['bbox_params'], classes=classes)
 
-        image = ToTensorV2()(image=sample['image'])['image']
+        image = ToTensorV2()(image=sample['image'])['image'].float()
         bbox_params = torch.FloatTensor(sample['bboxes'])
         classes = torch.LongTensor(sample['classes'])[:, None]
 
