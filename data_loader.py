@@ -110,4 +110,4 @@ def get_loader(hyp, opt):
                             num_workers=opt.workers,
                             drop_last=True)
 
-    return train_loader, val_loader
+    return train_loader, val_loader, data.names

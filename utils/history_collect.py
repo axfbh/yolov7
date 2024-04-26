@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union
-
+from utils import threaded
 import torch
 
 from scipy.signal import savgol_filter
@@ -69,6 +69,7 @@ class History:
         self.best_fitness = best_fitness
         self.save_period = save_period
 
+    @threaded
     def save(self, model, optimizer, epoch, fitness: float):
         if self.best_fitness is None or fitness >= self.best_fitness:
             self.best_fitness = fitness
@@ -96,31 +97,6 @@ class History:
             weights_pt_path = self.weight_dir.joinpath(f'weights{str(epoch)}.pt')
             torch.save(save_dict, weights_pt_path)
 
-    # def append(self, *args):
-    #     for loss_arr, l in zip(self.loss_arrs, args):
-    #         loss_arr.append(l)
-    #
-    # def loss_plot(self, start, log_num=None):
-    #     for loss, path in zip(self.loss_arrs, self.mode_dir):
-    #         log_num = self.log_num if log_num is None else log_num
-    #
-    #         if len(loss) > log_num:
-    #             iters = range(start, len(loss) + start)
-    #             plt.figure()
-    #             plt.plot(iters, loss, 'red', linewidth=2, label='train loss')
-    #             try:
-    #                 num = 5 if len(loss) < 25 else 10
-    #                 plt.plot(iters, savgol_filter(loss, num, 3), 'green', linestyle='--', linewidth=2,
-    #                          label='smooth train loss')
-    #             except Exception:
-    #                 pass
-    #             else:
-    #                 plt.grid(True)
-    #                 plt.xlabel('Epoch')
-    #                 plt.ylabel('Loss')
-    #                 plt.legend(loc="upper right")
-    #
-    #                 plt.savefig(os.path.join(path, "epoch_loss.png"))
-    #
-    #                 plt.cla()
-    #                 plt.close("all")
+    # @threaded
+    # def save_image(self, image):
+

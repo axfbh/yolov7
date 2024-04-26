@@ -14,11 +14,12 @@ from utils.history_collect import History
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
 from utils.logging import print_args
 from utils.torch_utils import de_parallel
+import val as validate  # for end-of-epoch mAP
 
 
 # hyp: hyper parameter
 # opt: options
-def train(train_loader, val_loader, hyp, opt):
+def train(train_loader, val_loader, hyp, opt, names):
     cfg = OmegaConf.load(Path(opt.cfg))
 
     nb = opt.batch_size
@@ -80,11 +81,18 @@ def train(train_loader, val_loader, hyp, opt):
                                    scaler=scaler,
                                    accumulate=accumulate)
 
-        val_metric = val_epoch(model=model,
-                               loader=val_loader,
-                               device=device,
-                               epoch=epoch,
-                               criterion=YoloLossV7(model))
+        val_metric = validate.run(val_loader=val_loader,
+                                  names=names,
+                                  model=model,
+                                  history=history,
+                                  device=device,
+                                  plots=False,
+                                  compute_loss=YoloLossV7(model))
+        # val_metric = val_epoch(model=model,
+        #                        loader=val_loader,
+        #                        device=device,
+        #                        epoch=epoch,
+        #                        criterion=)
 
         scheduler.step()
 
@@ -123,9 +131,9 @@ def main():
 
     hyp = OmegaConf.load(Path(opt.hyp))
 
-    train_loader, val_loader = get_loader(hyp, opt)
+    train_loader, val_loader, names = get_loader(hyp, opt)
 
-    train(train_loader, val_loader, hyp, opt)
+    train(train_loader, val_loader, hyp, opt, names)
 
 
 if __name__ == '__main__':

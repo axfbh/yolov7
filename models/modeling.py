@@ -54,7 +54,6 @@ class YoloV7(nn.Module):
                                num_classes)
         self.warmup()
 
-    @torch.no_grad()
     def warmup(self):
         s = 256  # 2x min stride
         forward = lambda x: self.forward(x)

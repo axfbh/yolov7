@@ -18,34 +18,25 @@ from ops.detection.nms import non_max_suppression
 from data_loader import get_loader
 
 from utils.logging import print_args, LOGGER
-
-
-def inference(model, image, device):
-    preds, _ = model(image.to(device))
-
-    # ------- 补充 ---------
-    return non_max_suppression(preds, 0.3, 0.4)
+from utils.history_collect import History
+from utils.plots import plot_images, output_to_target
 
 
 @torch.no_grad()
 def run(val_loader,
-        project,  # save to project/name
-        name,  # save to project/name
+        names,
+        model,
+        history,
         device,
-        batch_size=16,
-        image_size=640,
         conf_thres=0.001,
         iou_thres=0.6,  # NMS IoU threshold
         max_det=300,  # maximum detections per image
-        model=None,
         plots=True,
         compute_loss=None):
-    training = model is not None
-    if not training:
-        model = get_model(cfg)
-        model.to(device)
-
     model.eval()
+
+    metric = {}
+
     s = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
     stream = tqdm(val_loader, desc=s, bar_format="{l_bar}{bar:10}{r_bar}")
 
@@ -95,8 +86,8 @@ def run(val_loader,
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
         if plots and batch_i < 3:
-            plot_images(im, targets, paths, save_dir / f"val_batch{batch_i}_labels.jpg", names)  # labels
-            plot_images(im, output_to_target(preds), paths, save_dir / f"val_batch{batch_i}_pred.jpg", names)  # pred
+            plot_images(images, targets, names)  # labels
+            plot_images(images, output_to_target(preds), names)  # pred
 
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
@@ -107,6 +98,11 @@ def run(val_loader,
 
     pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
     LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+    metric['map50'] = map50
+    metric['map'] = map
+    metric['mp'] = mp
+    metric['mr'] = mr
+    return metric
 
 
 def parse_opt():
@@ -137,10 +133,21 @@ def main():
     print_args(vars(opt))
 
     hyp = OmegaConf.load(Path(opt.hyp))
+    cfg = OmegaConf.load(Path(opt.cfg))
+    data = OmegaConf.load(Path(opt.data))
 
-    train_loader, val_loader = get_loader(hyp, opt)
+    device = opt.device
+    model = get_model(cfg)
+    model.to(device)
 
-    run(val_loader, opt)
+    train_loader, val_loader, names = get_loader(hyp, opt)
+
+    history = History(project_dir=Path(opt.project),
+                      name=opt.name,
+                      mode='val',
+                      save_period=opt.save_period)
+
+    run(val_loader, names, model, history, device)
 
 
 if __name__ == '__main__':
