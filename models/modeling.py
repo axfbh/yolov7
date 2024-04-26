@@ -3,14 +3,15 @@ import torch
 from ops.model.neck.spp import SPPCSPC
 from ops.model.head.yolo_head import YoloV7Head
 from ops.model.misc.rep_conv import RepConv2d
+from ops.model.backbone.base_model import BasicModel
 from ops.model.backbone.elandarknet53 import ElanDarkNet53, CBS, MP1, Elan
 from ops.model.backbone.utils import _elandarknet_extractor
 from typing import List
 
 
-class YoloV7(nn.Module):
+class YoloV7(BasicModel):
     def __init__(self, anchors: List, num_classes: int, phi: str):
-        super().__init__()
+        super(YoloV7, self).__init__()
 
         transition_channels = {'l': 32, 'x': 40}[phi]
         block_channels = 32
@@ -55,11 +56,9 @@ class YoloV7(nn.Module):
         self.warmup()
 
     def warmup(self):
-        s = 256  # 2x min stride
-        forward = lambda x: self.forward(x)
-        self.head.stride = torch.tensor([s / x.shape[-2] for x in forward(torch.zeros(1, 3, s, s))])  # forward
+        super().warmup()
+        self.head.stride = self.stride
         self.head.anchors /= self.head.stride.view(-1, 1, 1)
-        self.stride = self.head.stride
         self.head.reset_parameters()
 
     def reset_parameters(self):
