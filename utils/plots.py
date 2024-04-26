@@ -95,7 +95,6 @@ def plot_images(images, targets, names):
     # annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs, pil=True, example=names)
     im = Image.fromarray(mosaic)
     annotator = ImageDraw.Draw(im)
-    font = "Arial.ttf"
     size = int((h + w) * ns * 0.01)  # font size
     font = ImageFont.truetype('./Arial.ttf', size)
     for i in range(i + 1):
