@@ -95,12 +95,9 @@ def plot_images(images, targets, names):
     # annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs, pil=True, example=names)
     im = Image.fromarray(mosaic)
     annotator = ImageDraw.Draw(im)
-    try:
-        font = "Arial.ttf"
-        size = int((h + w) * ns * 0.01)  # font size
-        font = ImageFont.truetype(str(font), size)
-    except Exception:
-        font = ImageFont.load_default()
+    font = "Arial.ttf"
+    size = int((h + w) * ns * 0.01)  # font size
+    font = ImageFont.truetype('./Arial.ttf', size)
     for i in range(i + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
@@ -130,14 +127,14 @@ def plot_images(images, targets, names):
                     # ------------- 画 box -------------
                     annotator.rectangle(box, width=round(fs / 10), outline=color)
 
-                    # # ------------- 画 label -------------
-                    # w, h = font.getsize(label)  # text width, height
-                    # outside = p1[1] - h >= 0  # label fits outside box
-                    # annotator.rectangle(
-                    #     (
-                    #         p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1,
-                    #         p1[1] + 1 if outside else p1[1] + h + 1),
-                    #     fill=color,
-                    # )
-                    # annotator.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=(255, 255, 255), font=font)
+                    # ------------- 画 label -------------
+                    w, h = font.getsize(label)  # text width, height
+                    outside = p1[1] - h >= 0  # label fits outside box
+                    annotator.rectangle(
+                        (
+                            p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1,
+                            p1[1] + 1 if outside else p1[1] + h + 1),
+                        fill=color,
+                    )
+                    annotator.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=(255, 255, 255), font=font)
     return im

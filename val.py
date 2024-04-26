@@ -32,7 +32,7 @@ def run(val_loader,
         iou_thres=0.6,  # NMS IoU threshold
         max_det=300,  # maximum detections per image
         plots=True,
-        compute_loss=None):
+        criterion=None):
     model.eval()
 
     metric = {}
@@ -55,9 +55,9 @@ def run(val_loader,
 
         preds, train_out = model(images)
 
-        if compute_loss:
+        if criterion:
             image_size = torch.as_tensor(images.shape[2:]).to(device)
-            loss += compute_loss(train_out, targets, image_size)[1]  # box, obj, cls
+            loss += criterion(train_out, targets, image_size)[1]  # box, obj, cls
 
         preds = non_max_suppression(preds, conf_thres, iou_thres, max_det)
 
@@ -87,8 +87,8 @@ def run(val_loader,
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
         if plots and batch_i < 3:
-            plot_images(images, targets, names)  # labels
-            plot_images(images, output_to_target(preds), names)  # pred
+            plt_l_image = plot_images(images, targets, names)  # labels
+            plt_p_image = plot_images(images, output_to_target(preds), names)  # pred
 
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
@@ -135,13 +135,12 @@ def main():
 
     hyp = OmegaConf.load(Path(opt.hyp))
     cfg = OmegaConf.load(Path(opt.cfg))
-    data = OmegaConf.load(Path(opt.data))
 
     device = opt.device
     model = get_model(cfg)
     model.to(device)
 
-    train_loader, val_loader, names = get_loader(hyp, opt)
+    _, val_loader, names = get_loader(hyp, opt)
 
     history = History(project_dir=Path(opt.project),
                       name=opt.name,

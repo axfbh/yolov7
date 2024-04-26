@@ -87,12 +87,7 @@ def train(train_loader, val_loader, hyp, opt, names):
                                   history=history,
                                   device=device,
                                   plots=False,
-                                  compute_loss=YoloLossV7(model))
-        # val_metric = val_epoch(model=model,
-        #                        loader=val_loader,
-        #                        device=device,
-        #                        epoch=epoch,
-        #                        criterion=)
+                                  criterion=YoloLossV7(model))
 
         scheduler.step()
 
