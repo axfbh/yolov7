@@ -52,6 +52,16 @@ class YoloV7(nn.Module):
         self.head = YoloV7Head([transition_channels * 8, transition_channels * 16, transition_channels * 32],
                                anchors,
                                num_classes)
+        self.warmup()
+
+    @torch.no_grad()
+    def warmup(self):
+        s = 256  # 2x min stride
+        forward = lambda x: self.forward(x)
+        self.head.stride = torch.tensor([s / x.shape[-2] for x in forward(torch.zeros(1, 3, s, s))])  # forward
+        self.head.anchors /= self.head.stride.view(-1, 1, 1)
+        self.stride = self.head.stride
+        self.head.reset_parameters()
 
     def reset_parameters(self):
         for m in self.modules():
@@ -63,8 +73,6 @@ class YoloV7(nn.Module):
                 m.momentum = 0.03
 
     def forward(self, x):
-        B, C, H, W = x.size()
-
         x = self.backbone(x)
 
         feat1, feat2, feat3 = x['0'], x['1'], x['2']
@@ -92,7 +100,7 @@ class YoloV7(nn.Module):
         P4 = self.rep_conv_2(P4)
         P5 = self.rep_conv_3(P5)
 
-        return self.head([P3, P4, P5], H, W)
+        return self.head([P3, P4, P5])
 
 
 def get_model(cfg):

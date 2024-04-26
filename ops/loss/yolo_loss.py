@@ -48,7 +48,7 @@ class YoloLossV3(YoloLoss):
             stride = image_size / ng
 
             # ------------- 将 anchor 映射到 grid 的大小 -------------
-            anchor = self.anchors[i] / stride[[1, 0]]
+            anchor = self.anchors[i]
 
             # ----------- 归一化的 坐标和长宽 -----------
             gain[2:] = (1 / stride)[[1, 0, 1, 0]]
@@ -96,8 +96,6 @@ class YoloLossV3(YoloLoss):
         bs = preds[0].shape[0]
 
         MSE = nn.MSELoss()
-        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
-        BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lxy = torch.zeros(1, dtype=torch.float32, device=self.device)
@@ -131,10 +129,10 @@ class YoloLossV3(YoloLoss):
                 if self.num_classes > 1:
                     t = torch.zeros_like(ps[:, 5:])  # targets
                     t[range(nb), tcls[i] - 1] = 1
-                    lcls += BCEcls(ps[:, 5:], t)
+                    lcls += self.BCEcls(ps[:, 5:], t)
 
             # ------------ 计算 置信度 loss ------------
-            lobj += BCEobj(pi[..., 4], tobj)
+            lobj += self.BCEobj(pi[..., 4], tobj)
 
         lxy *= self.hyp["lxy"]
         lwh *= self.hyp["lwh"]
@@ -163,13 +161,12 @@ class YoloLossV4(YoloLoss):
             # ----------- grid 大小 -----------
             ng = grids[i]
 
-            # ----------- 图片与 grid 的比值 -----------
+            # ----------- 图片 与 grid 的比值 -----------
             stride = image_size / ng
 
-            # ----------- 锚框映射到 grid 大小 -----------
-            anchor = self.anchors[i] / stride[[1, 0]]
+            anchor = self.anchors[i]
 
-            # ----------- 归一化的 坐标和长宽 -----------
+            # ----------- box 映射到网格 坐标和长宽 -----------
             gain[2:] = (1 / stride)[[1, 0, 1, 0]]
 
             t = torch.Tensor(size=(0, 7)).to(self.device)
@@ -216,9 +213,6 @@ class YoloLossV4(YoloLoss):
 
         bs = preds[0].shape[0]
 
-        BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
-        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(1, dtype=torch.float32, device=self.device))
-
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lbox = torch.zeros(1, dtype=torch.float32, device=self.device)
         lobj = torch.zeros(1, dtype=torch.float32, device=self.device)
@@ -249,9 +243,9 @@ class YoloLossV4(YoloLoss):
                 if self.num_classes > 1:
                     t = torch.full_like(ps[:, 5:], self.cn)  # targets
                     t[range(nb), tcls[i] - 1] = self.cp
-                    lcls += BCEcls(ps[:, 5:], t)
+                    lcls += self.BCEcls(ps[:, 5:], t)
 
-            lobj += BCEobj(pi[..., 4], tobj)
+            lobj += self.BCEobj(pi[..., 4], tobj)
 
         lbox *= self.hyp["box"]
         lobj *= self.hyp["obj"]
@@ -293,7 +287,7 @@ class YoloLossV7(YoloLoss):
             stride = image_size / ng
 
             # ----------- 锚框映射到 grid 大小 -----------
-            anchor = self.anchors[i] / stride[[1, 0]]
+            anchor = self.anchors[i]
 
             na = len(anchor)
 
