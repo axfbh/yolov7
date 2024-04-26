@@ -73,10 +73,11 @@ def val_epoch(model, loader, device, epoch, criterion):
     stats, ap, ap_class = [], [], []
 
     seen = 0
+    tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
     single_cls = False
-    tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     for i, data in enumerate(stream):
         images, targets = data

@@ -44,15 +44,16 @@ def run(val_loader,
     tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     loss = torch.zeros(3, device=device)
     stats, ap, ap_class = [], [], []
+
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
     single_cls = False
+
     for batch_i, (images, targets) in enumerate(stream):
         images = images.to(device, non_blocking=True) / 255.
-
         targets = targets.to(device)
 
-        preds, train_out = model(images.to(device))
+        preds, train_out = model(images)
 
         if compute_loss:
             image_size = torch.as_tensor(images.shape[2:]).to(device)
