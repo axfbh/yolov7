@@ -10,9 +10,6 @@ import torch
 from torchvision.ops.boxes import box_convert
 from ops.metric.DetectionMetric import process_batch, ap_per_class
 
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
 from models.modeling import get_model
 from ops.detection.nms import non_max_suppression
 from data_loader import get_loader
