@@ -18,6 +18,8 @@ from utils.logging import print_args, LOGGER
 from utils.history_collect import History
 from utils.plots import plot_images, output_to_target
 
+S = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
+
 
 @torch.no_grad()
 def run(val_loader,
@@ -32,8 +34,7 @@ def run(val_loader,
         criterion=None):
     model.eval()
 
-    s = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
-    stream = tqdm(val_loader, desc=s, bar_format="{l_bar}{bar:10}{r_bar}")
+    stream = tqdm(val_loader, desc=S, bar_format="{l_bar}{bar:10}{r_bar}")
 
     seen = 0
     tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -93,8 +94,11 @@ def run(val_loader,
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
     nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
 
-    pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
-    LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+    LOGGER.info(
+        ("%22s" + "%11i" * 2 + "%11.3g" * 4)
+        % ("all", seen, nt.sum(), mp, mr, map50, map)
+    )
+
     metric = {'mao50': map50,
               'map': map,
               'mp': mp,

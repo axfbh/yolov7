@@ -18,7 +18,10 @@ def train_epoch(model, loader, device, epoch, optimizer, criterion, scaler, accu
         'lcls': AverageMeter(),
     }
 
-    LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr"))
+    LOGGER.info(
+        ("\n" + "%11s" * 7)
+        % ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr")
+    )
 
     stream = tqdm(loader, bar_format="{l_bar}{bar:10}{r_bar}")
 
