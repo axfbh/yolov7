@@ -84,8 +84,7 @@ def run(val_loader,
 
         if plots and batch_i < 3:
             plt_l_image = plot_images(images, targets, names)  # labels
-            history.save_image(plt_l_image)
-
+            history.save_image(plt_l_image, mode='label')
             plt_p_image = plot_images(images, output_to_target(preds), names)  # pred
             history.save_image(plt_p_image, mode='pred')
 

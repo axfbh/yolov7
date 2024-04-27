@@ -104,5 +104,4 @@ class History:
             image.save(str(self.exp_dir.joinpath(f"image_{mode}_{str(self.save_id)}.jpg")))
         else:
             cv2.imwrite(str(self.exp_dir.joinpath(f"image_{mode}_{str(self.save_id)}.jpg")), image)
-
         self.save_id += 1
