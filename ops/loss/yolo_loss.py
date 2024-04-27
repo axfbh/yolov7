@@ -139,9 +139,7 @@ class YoloLossV3(YoloLoss):
         lobj *= self.hyp["obj"]
         lcls *= self.hyp["cls"]
 
-        loss = (lxy + lwh + lobj + lcls) * bs
-
-        return loss, lxy.detach(), lwh.detach(), lobj.detach(), lcls.detach()
+        return (lxy + lwh + lobj + lcls) * bs, torch.cat((lxy, lwh, lobj, lcls)).detach()
 
 
 class YoloLossV4(YoloLoss):
@@ -246,9 +244,7 @@ class YoloLossV4(YoloLoss):
         lobj *= self.hyp["obj"]
         lcls *= self.hyp["cls"]
 
-        loss = (lbox + lobj + lcls) * bs
-
-        return loss, lbox.detach(), lobj.detach(), lcls.detach()
+        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach()
 
 
 class YoloLossV7(YoloLoss):
@@ -385,6 +381,4 @@ class YoloLossV7(YoloLoss):
         lobj *= self.hyp["obj"]
         lcls *= self.hyp["cls"]
 
-        loss = (lbox + lobj + lcls) * bs
-
-        return loss, lbox.detach(), lobj.detach(), lcls.detach()
+        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach()

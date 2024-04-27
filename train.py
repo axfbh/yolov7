@@ -2,6 +2,7 @@ import os
 import argparse
 from pathlib import Path
 from omegaconf import OmegaConf
+from tqdm import tqdm
 
 import torch
 
@@ -9,12 +10,13 @@ from models.modeling import get_model
 from data_loader import get_loader
 
 from ops.loss.yolo_loss import YoloLossV7
-from utils.epoch_utils import train_epoch
-from utils.history_collect import History
+from utils.history_collect import History, AverageMeter
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
-from utils.logging import print_args
+from utils.logging import print_args, LOGGER
 from utils.torch_utils import de_parallel
 import val as validate  # for end-of-epoch mAP
+
+TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 
 
 # hyp: hyper parameter
@@ -71,15 +73,54 @@ def train(train_loader, val_loader, hyp, opt, names):
                       best_fitness=best_fitness,
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
+    criterion = YoloLossV7(model)
+
     for epoch in range(start_epoch, end_epoch):
-        train_metric = train_epoch(model=model,
-                                   loader=train_loader,
-                                   device=device,
-                                   epoch=epoch,
-                                   optimizer=optimizer,
-                                   criterion=YoloLossV7(model),
-                                   scaler=scaler,
-                                   accumulate=accumulate)
+        model.train()
+
+        lbox = AverageMeter()
+        lobj = AverageMeter()
+        lcls = AverageMeter()
+
+        LOGGER.info(
+            ("\n" + "%11s" * 7) %
+            ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr")
+        )
+
+        stream = tqdm(train_loader, bar_format=TQDM_BAR_FORMAT)
+
+        optimizer.zero_grad()
+        for i, (images, targets) in enumerate(stream):
+            images = images.to(device) / 255.
+
+            _, _, h, w = images.size()
+
+            image_size = torch.tensor([h, w])
+
+            preds = model(images)
+
+            loss, loss_items = criterion(preds, targets.to(device), image_size.to(device))
+
+            scaler.scale(loss).backward()
+
+            # ------------- 梯度累积 -------------
+            if (i + 1) % accumulate == 0 or (i + 1) == len(train_loader):
+                scaler.unscale_(optimizer)  # unscale gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                scaler.step(optimizer)  # optimizer.step
+                scaler.update()
+                optimizer.zero_grad()
+
+            lbox.update(loss_items[0].item())
+            lobj.update(loss_items[1].item())
+            lcls.update(loss_items[2].item())
+
+            mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+            lr = optimizer.param_groups[0]['lr']
+            stream.set_description(
+                ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
+                (epoch, mem, f"{h}x{w}", lbox.avg, lobj.avg, lcls.avg, lr)
+            )
 
         val_metric = validate.run(val_loader=val_loader,
                                   names=names,
@@ -87,7 +128,7 @@ def train(train_loader, val_loader, hyp, opt, names):
                                   history=history,
                                   device=device,
                                   plots=False,
-                                  criterion=YoloLossV7(model))
+                                  criterion=criterion)
 
         scheduler.step()
 

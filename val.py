@@ -19,6 +19,7 @@ from utils.history_collect import History
 from utils.plots import plot_images, output_to_target
 
 S = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
+TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 
 
 @torch.no_grad()
@@ -34,7 +35,7 @@ def run(val_loader,
         criterion=None):
     model.eval()
 
-    stream = tqdm(val_loader, desc=S, bar_format="{l_bar}{bar:10}{r_bar}")
+    stream = tqdm(val_loader, desc=S, bar_format=TQDM_BAR_FORMAT)
 
     seen = 0
     tp, fp, p, r, f1, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -95,8 +96,8 @@ def run(val_loader,
     nt = np.bincount(stats[3].astype(int), minlength=20)  # number of targets per class
 
     LOGGER.info(
-        ("%22s" + "%11i" * 2 + "%11.3g" * 4)
-        % ("all", seen, nt.sum(), mp, mr, map50, map)
+        ("%22s" + "%11i" * 2 + "%11.3g" * 4) %
+        ("all", seen, nt.sum(), mp, mr, map50, map)
     )
 
     metric = {'mao50': map50,
