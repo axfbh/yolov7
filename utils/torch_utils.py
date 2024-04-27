@@ -1,7 +1,11 @@
-import torch
 import os
+import math
+from copy import deepcopy
+
+import torch
 import torch.nn as nn
 from torch.nn.parameter import is_lazy
+
 from utils.logging import LOGGER, colorstr
 from pathlib import Path
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR, WarmupPolynomialLR
@@ -96,37 +100,42 @@ def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1,
     return scheduler
 
 
-def smart_resume(model, optimizer, resume=False, save_path: Path = None):
+def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path: Path = None):
     last_epoch = -1
     best_fitness = None
     if not resume or save_path is None or not save_path.is_file():
         LOGGER.warning(
-            f"{colorstr('Warning:')} not resume parameters"
+            f"{colorstr('Warning:')} Noting to resume"
         )
         start_epoch = last_epoch + 1
-        return last_epoch, best_fitness, start_epoch
-    # ------------ resume model ------------
+        return last_epoch, best_fitness, start_epoch, epochs
     save_dict = torch.load(save_path, map_location='cpu')
 
-    last_epoch = save_dict.get('last_epoch', last_epoch)
-    best_fitness = save_dict.get('best_fitness', best_fitness)
-
-    # ---------- 加载模型权重 ----------
+    # ------------ resume model ------------
     model_param = save_dict['model']
     _load_from(model, model_param)
 
-    # ---------- epoch 识别 ----------
+    last_epoch = save_dict.get('last_epoch', last_epoch)
+    start_epoch = last_epoch + 1
+
+    best_fitness = save_dict.get('best_fitness', best_fitness)
+
     LOGGER.info(
-        f"{colorstr('model loaded:')} path: {save_path} last_epoch: {last_epoch} -> {model._get_name()}"
+        f"{colorstr('model loaded:')} Resuming training from {save_path} from epoch {start_epoch} to {epochs} total epochs"
     )
 
+    eam_param = save_dict.get('ema', None)
+
+    if ema and eam_param is not None:
+        ema.ema.load_state_dict(eam_param.state_dict())  # EMA
+        ema.updates = save_dict["updates"]
+
     # ------------ resume optimizer ------------
-    save_dict = torch.load(save_path, map_location='cpu')
 
     optim_param = save_dict.get('optimizer', None)
     optim_name = save_dict.get('optimizer_name', None)
 
-    if optim_name == optimizer.__class__.__name__:
+    if optim_name == optimizer.__class__.__name__ and optim_param is not None:
         optimizer.load_state_dict(optim_param)
         for param in optimizer.param_groups:
             LOGGER.info(
@@ -135,11 +144,10 @@ def smart_resume(model, optimizer, resume=False, save_path: Path = None):
             )
     else:
         LOGGER.warning(
-            f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
+            f"{colorstr('Warning')} Cannot loaded the optimizer parameter, but it doesnt affect the model working."
         )
 
-    start_epoch = last_epoch + 1
-    return last_epoch, best_fitness, start_epoch
+    return last_epoch, best_fitness, start_epoch, epochs
 
 
 def is_parallel(model):
@@ -150,3 +158,29 @@ def is_parallel(model):
 def de_parallel(model):
     # De-parallelize a model: returns single-GPU model if model is of type DP or DDP
     return model.module if is_parallel(model) else model
+
+
+class ModelEMA:
+    """Updated Exponential Moving Average (EMA) from https://github.com/rwightman/pytorch-image-models
+    Keeps a moving average of everything in the model state_dict (parameters and buffers)
+    For EMA details see https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
+    """
+
+    def __init__(self, model, decay=0.9999, tau=2000, updates=0):
+        # Create EMA
+        self.ema = deepcopy(de_parallel(model)).eval()  # FP32 EMA
+        self.updates = updates  # number of EMA updates
+        self.decay = lambda x: decay * (1 - math.exp(-x / tau))  # decay exponential ramp (to help early epochs)
+        for p in self.ema.parameters():
+            p.requires_grad_(False)
+
+    def update(self, model):
+        # Update EMA parameters
+        self.updates += 1
+        d = self.decay(self.updates)
+
+        msd = de_parallel(model).state_dict()  # model state_dict
+        for k, v in self.ema.state_dict().items():
+            if v.dtype.is_floating_point:  # true for FP16 and FP32
+                v *= d
+                v += (1 - d) * msd[k].detach()

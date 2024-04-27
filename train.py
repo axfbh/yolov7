@@ -14,9 +14,8 @@ from data_loader import get_loader
 from ops.loss.yolo_loss import YoloLossV7
 from ops.metric.DetectionMetric import fitness
 from utils.history_collect import History, AverageMeter
-from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
+from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
 from utils.logging import print_args, LOGGER
-from utils.torch_utils import de_parallel
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -51,13 +50,19 @@ def train(train_loader, val_loader, hyp, opt, names):
                                 hyp.momentum,
                                 hyp.weight_decay)
 
-    # -------- 梯度优化器 --------
+    # -------- 梯度缩放器 --------
     scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    # -------- 模型权重加载器 --------
-    last_epoch, best_fitness, start_epoch = smart_resume(model, optimizer, opt.resume, Path(opt.weights))
+    # -------- 模型参数平滑器 --------
+    ema = ModelEMA(model)
 
-    end_epoch = opt.epochs
+    # -------- 模型权重加载器 --------
+    last_epoch, best_fitness, start_epoch, end_epoch = smart_resume(model,
+                                                                    optimizer,
+                                                                    ema,
+                                                                    opt.epochs,
+                                                                    opt.resume,
+                                                                    Path(opt.weights))
 
     # -------- 学习率优化器 and 学习率预热器 --------
     scheduler = smart_scheduler(optimizer,
@@ -81,9 +86,7 @@ def train(train_loader, val_loader, hyp, opt, names):
     for epoch in range(start_epoch, end_epoch):
         model.train()
 
-        lbox = AverageMeter()
-        lobj = AverageMeter()
-        lcls = AverageMeter()
+        lbox, lobj, lcls = AverageMeter(), AverageMeter(), AverageMeter()
 
         LOGGER.info(
             ("\n" + "%11s" * 7) %
@@ -113,6 +116,8 @@ def train(train_loader, val_loader, hyp, opt, names):
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
                 optimizer.zero_grad()
+                if ema:
+                    ema.update(model)
 
             lbox.update(loss_items[0].item())
             lobj.update(loss_items[1].item())
@@ -127,7 +132,7 @@ def train(train_loader, val_loader, hyp, opt, names):
 
         val_metric = validate.run(val_loader=val_loader,
                                   names=names,
-                                  model=model,
+                                  model=ema.ema,
                                   history=history,
                                   device=device,
                                   plots=False,
@@ -137,7 +142,7 @@ def train(train_loader, val_loader, hyp, opt, names):
 
         fi = fitness(np.array(val_metric).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
 
-        history.save(model, optimizer, epoch, fi)
+        history.save(model, ema, optimizer, epoch, fi)
 
 
 def parse_opt():

@@ -3,6 +3,7 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union
+from copy import deepcopy
 
 import numpy as np
 import cv2
@@ -11,6 +12,7 @@ import torch
 
 from utils import threaded
 from utils.plots import Annotator
+from utils.torch_utils import de_parallel
 
 
 def yaml_save(file: Union[str, Path] = "data.yaml", data={}):
@@ -71,7 +73,7 @@ class History:
         self.save_id = 1
 
     @threaded
-    def save(self, model, optimizer, epoch, fitness: float):
+    def save(self, model, ema, optimizer, epoch, fitness: float):
         if self.best_fitness is None or fitness >= self.best_fitness:
             self.best_fitness = fitness
 
@@ -80,7 +82,9 @@ class History:
             "best_fitness": fitness,
             'optimizer_name': optimizer.__class__.__name__,
             'optimizer': optimizer.state_dict(),
-            'model': model.state_dict(),
+            'model': deepcopy(de_parallel(model)),
+            "ema": deepcopy(ema.ema),
+            "updates": ema.updates,
             "date": datetime.now().isoformat(),
         }
 
