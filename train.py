@@ -99,10 +99,9 @@ def train(train_loader, val_loader, hyp, opt, names):
         for i, (images, targets, shape) in enumerate(stream):
             images = images.to(device) / 255.
 
-            image_size = torch.as_tensor(shape, device=device)
-
             preds = model(images)
 
+            image_size = torch.as_tensor(shape, device=device)
             loss, loss_items = criterion(preds, targets.to(device), image_size)
 
             scaler.scale(loss).backward()
