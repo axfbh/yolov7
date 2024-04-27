@@ -16,7 +16,8 @@ from data_loader import get_loader
 
 from utils.logging import print_args, LOGGER
 from utils.history_collect import History
-from utils.plots import plot_images, output_to_target
+from utils.plots import plot_images
+from utils.torch_utils import output_to_target
 
 S = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -111,7 +112,7 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp22/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp/weights/best.pt",
                         help="model path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
@@ -136,8 +137,8 @@ def main():
     device = opt.device
     model = get_model(cfg)
     model.to(device)
-    ckpt = torch.load(opt.weights, map_location="cpu")['model']  # load
-    model.load_state_dict(ckpt)
+    ckpt = torch.load(opt.weights, map_location="cpu")['ema']  # load
+    model.load_state_dict(ckpt.state_dict())
 
     _, val_loader, names = get_loader(hyp, opt)
 

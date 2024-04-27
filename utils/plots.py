@@ -70,15 +70,6 @@ class Annotator:
         cv2.imwrite(filename, cv2.cvtColor(np.asarray(self.im),cv2.COLOR_RGB2BGR))
 
 
-def output_to_target(output, max_det=300):
-    # Convert model output to target format [batch_id, class_id, x, y, w, h, conf] for plotting
-    targets = []
-    for i, o in enumerate(output):
-        box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)
-        j = torch.full((conf.shape[0], 1), i)
-        targets.append(torch.cat((j, cls, box_convert(box, 'xyxy', 'cxcywh'), conf), 1))
-    return torch.cat(targets, 0).numpy()
-
 
 class Colors:
     # Ultralytics color palette https://ultralytics.com/

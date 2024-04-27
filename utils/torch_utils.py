@@ -9,6 +9,7 @@ from torch.nn.parameter import is_lazy
 from utils.logging import LOGGER, colorstr
 from pathlib import Path
 from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR, WarmupPolynomialLR
+from torchvision.ops.boxes import box_convert
 
 
 @torch.no_grad()
@@ -184,3 +185,13 @@ class ModelEMA:
             if v.dtype.is_floating_point:  # true for FP16 and FP32
                 v *= d
                 v += (1 - d) * msd[k].detach()
+
+
+def output_to_target(output, max_det=300):
+    # Convert model output to target format [batch_id, class_id, x, y, w, h, conf] for plotting
+    targets = []
+    for i, o in enumerate(output):
+        box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)
+        j = torch.full((conf.shape[0], 1), i)
+        targets.append(torch.cat((j, cls, box_convert(box, 'xyxy', 'cxcywh'), conf), 1))
+    return torch.cat(targets, 0).numpy()
