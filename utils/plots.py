@@ -15,7 +15,7 @@ def output_to_target(output, max_det=300):
         box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)
         j = torch.full((conf.shape[0], 1), i)
         targets.append(torch.cat((j, cls, box_convert(box, 'xyxy', 'cxcywh'), conf), 1))
-    return targets
+    return torch.cat(targets, 0).numpy()
 
 
 class Colors:
@@ -101,10 +101,7 @@ def plot_images(images, targets, names):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
         if len(targets) > 0:
-            ti = targets[i]  # image targets
-            ti = ti[ti[:, 1] > 0]
-            if isinstance(ti, torch.Tensor):
-                ti = ti.numpy()
+            ti = targets[targets[:, 0] == i]  # image targets
             boxes = box_convert(torch.as_tensor(ti[:, 2:6]), in_fmt='cxcywh', out_fmt='xyxy').numpy().T
             classes = ti[:, 1].astype("int")
             labels = ti.shape[1] == 6  # labels if no conf column

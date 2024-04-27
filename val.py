@@ -85,6 +85,7 @@ def run(val_loader,
         if plots and batch_i < 3:
             plt_l_image = plot_images(images, targets, names)  # labels
             plt_p_image = plot_images(images, output_to_target(preds), names)  # pred
+            plt_p_image.show()
 
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
@@ -115,7 +116,7 @@ def parse_opt():
     parser.add_argument("--conf-thres", type=float, default=0.3, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.6, help="NMS IoU threshold")
     parser.add_argument("--max-det", type=int, default=300, help="maximum detections per image")
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp1/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp22/weights/best.pt",
                         help="model path(s)")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
 
