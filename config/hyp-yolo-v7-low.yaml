@@ -10,7 +10,7 @@ weight_decay: 0.0005
 
 # ---------- 预热器 参数 ----------
 warmup_iters: 3
-warmup_factor: 10
+warmup_factor: 0.1
 warmup_method: 'linear'
 
 # ---------- 数据增强 参数 ----------

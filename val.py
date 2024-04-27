@@ -1,4 +1,3 @@
-import os.path
 import argparse
 from omegaconf import OmegaConf
 from pathlib import Path
