@@ -111,19 +111,17 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp22/weights/best.pt",
+                        help="model path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--conf-thres", type=float, default=0.3, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.6, help="NMS IoU threshold")
     parser.add_argument("--max-det", type=int, default=300, help="maximum detections per image")
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp22/weights/best.pt",
-                        help="model path(s)")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
-
     parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
-    parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
 
     return parser.parse_args()
 

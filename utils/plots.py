@@ -1,3 +1,4 @@
+import PIL.Image
 import numpy as np
 import cv2
 from pathlib import Path
@@ -59,7 +60,7 @@ class Colors:
 colors = Colors()  # create instance for 'from utils.plots import colors'
 
 
-def plot_images(images, targets, names):
+def plot_images(images, targets, names) -> PIL.Image:
     # Plot image grid with labels
     if isinstance(images, torch.Tensor):
         images = images.cpu().float().numpy()
@@ -71,8 +72,10 @@ def plot_images(images, targets, names):
     bs, _, h, w = images.shape  # batch size, _, height, width
     bs = min(bs, max_subplots)  # limit plot images
     ns = np.ceil(bs ** 0.5)  # number of subplots (square)
+
+    # de-normalise (optional)
     if np.max(images[0]) <= 1:
-        images *= 255  # de-normalise (optional)
+        images *= 255
 
     # Build Image
     mosaic = np.full((int(ns * h), int(ns * w), 3), 255, dtype=np.uint8)  # init
@@ -94,9 +97,9 @@ def plot_images(images, targets, names):
     im = Image.fromarray(mosaic)
     annotator = ImageDraw.Draw(im)
     fs = int((h + w) * ns * 0.01)  # font size
-    # size = int((h + w) * ns * 0.01)  # font size
-    # font = ImageFont.truetype('./utils/Arial.ttf', size)
-    # font.getsize = lambda x: font.getbbox(x)[2:4]
+    size = int((h + w) * ns * 0.01)  # font size
+    font = ImageFont.truetype('./utils/Arial.ttf', size)
+    font.getsize = lambda x: font.getbbox(x)[2:4]
     for i in range(i + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
@@ -109,30 +112,35 @@ def plot_images(images, targets, names):
 
             if boxes.shape[1]:
                 if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
-                    boxes[[0, 2]] *= w  # scale to pixels
+                    boxes[[0, 2]] *= w
                     boxes[[1, 3]] *= h
                 elif scale < 1:  # absolute coords need scale if image scales
                     boxes *= scale
             boxes[[0, 2]] += x
             boxes[[1, 3]] += y
+
             for j, box in enumerate(boxes.T.tolist()):
                 cls = classes[j]
                 color = colors(cls)
                 cls = names[int(cls)] if names else cls
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = f"{cls}" if labels else f"{cls} {conf[j]:.1f}"
-                    # p1 = (box[0], box[1])
+
+                    if isinstance(box, torch.Tensor):
+                        box = box.tolist()
+
+                    p1 = (box[0], box[1])
                     # ------------- 画 box -------------
                     annotator.rectangle(box, width=round(fs / 10), outline=color)
 
                     # ------------- 画 label -------------
-                    # w, h = font.getsize(label)  # text width, height
-                    # outside = p1[1] - h >= 0  # label fits outside box
-                    # annotator.rectangle(
-                    #     (
-                    #         p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1,
-                    #         p1[1] + 1 if outside else p1[1] + h + 1),
-                    #     fill=color,
-                    # )
-                    # annotator.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=(255, 255, 255), font=font)
+                    fw, fh = font.getsize(label)  # text width, height
+                    outside = p1[1] - fh >= 0  # label fits outside box
+                    annotator.rectangle(
+                        (
+                            p1[0], p1[1] - fh if outside else p1[1], p1[0] + fw + 1,
+                            p1[1] + 1 if outside else p1[1] + fh + 1),
+                        fill=color,
+                    )
+                    annotator.text((p1[0], p1[1] - fh if outside else p1[1]), label, fill=(255, 255, 255), font=font)
     return im
