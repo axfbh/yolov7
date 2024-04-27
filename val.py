@@ -100,11 +100,7 @@ def run(val_loader,
         ("all", seen, nt.sum(), mp, mr, map50, map)
     )
 
-    metric = {'mao50': map50,
-              'map': map,
-              'mp': mp,
-              'mr': mr}
-    return metric
+    return mp, mr, map50, map
 
 
 def parse_opt():

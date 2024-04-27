@@ -6,10 +6,13 @@ from tqdm import tqdm
 
 import torch
 
+import numpy as np
+
 from models.modeling import get_model
 from data_loader import get_loader
 
 from ops.loss.yolo_loss import YoloLossV7
+from ops.metric.DetectionMetric import fitness
 from utils.history_collect import History, AverageMeter
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler
 from utils.logging import print_args, LOGGER
@@ -132,7 +135,9 @@ def train(train_loader, val_loader, hyp, opt, names):
 
         scheduler.step()
 
-        history.save(model, optimizer, epoch, val_metric['map50'])
+        fi = fitness(np.array(val_metric).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+
+        history.save(model, optimizer, epoch, fi)
 
 
 def parse_opt():
