@@ -259,7 +259,7 @@ class YoloLossV7(YoloLoss):
 
         for i in range(self.nl):
             # ----------- grid 大小 -----------
-            (nb, _), ng, _ = torch.as_tensor(p[i].shape, device=self.device).split(2)
+            (bs, _), ng, _ = torch.as_tensor(p[i].shape, device=self.device).split(2)
 
             # ----------- 网格 ——----------
             x, y = torch.tensor([[0, 0],
@@ -283,7 +283,7 @@ class YoloLossV7(YoloLoss):
 
             t = torch.Tensor(size=(0, 9)).to(self.device)
 
-            for si in range(nb):
+            for si in range(bs):
                 tb = targets[targets[:, 0] == si] * gain
 
                 nb, cls, cx, cy, gw, gh = tb.unbind(1)
