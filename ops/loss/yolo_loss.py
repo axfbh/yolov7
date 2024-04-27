@@ -36,26 +36,29 @@ class YoloLoss(BasicLoss):
 
 
 class YoloLossV3(YoloLoss):
-    def build_targets(self, targets, grids, image_size):
+    def build_targets(self, p, targets, image_size):
 
         tcls, txy, twh, indices = [], [], [], []
         gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
 
-        for i in range(len(grids)):
-            # ----------- 提取 不同尺度的 网格大小 -----------
-            ng = grids[i]
+        for i in range(self.nl):
+            # ----------- grid 大小 -----------
+            (nb, _), ng, _ = torch.as_tensor(p[i].shape, device=self.device).split(2)
 
+            # ----------- 图片 与 grid 的比值 -----------
             stride = image_size / ng
 
-            # ------------- 将 anchor 映射到 grid 的大小 -------------
-            anchor = self.anchors[i]
+            # ----------- 锚框映射到 grid 大小 -----------
+            anchor = self.anchors[i] / stride[[1, 0]]
 
             # ----------- 归一化的 坐标和长宽 -----------
             gain[2:] = (1 / stride)[[1, 0, 1, 0]]
 
             t = torch.Tensor(size=(0, 7)).to(self.device)
 
-            for tb in targets * gain:
+            for si in range(nb):
+                tb = targets[targets[:, 0] == si] * gain
+
                 # ----------- 计算 锚框 与 长宽 的 iou -----------
                 gwh = tb[:, 4:6]
                 iou = bbox_iou(anchor, gwh, in_fmt='wh')
@@ -91,8 +94,6 @@ class YoloLossV3(YoloLoss):
         return tcls, txy, twh, indices
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
-
         bs = preds[0].shape[0]
 
         MSE = nn.MSELoss()
@@ -102,7 +103,7 @@ class YoloLossV3(YoloLoss):
         lwh = torch.zeros(1, dtype=torch.float32, device=self.device)
         lobj = torch.zeros(1, dtype=torch.float32, device=self.device)
 
-        tcls, txy, twh, indices = self.build_targets(targets, grids, image_size)
+        tcls, txy, twh, indices = self.build_targets(preds, targets, image_size)
 
         for i, pi in enumerate(preds):
             b, a, gj, gi = indices[i]
@@ -146,32 +147,29 @@ class YoloLossV3(YoloLoss):
 
 class YoloLossV4(YoloLoss):
 
-    def build_targets(self, targets, grids, image_size):
-        """
-
-        :param targets: 归一化的标签
-        :param grids: 网格大小
-        :return:
-        """
+    def build_targets(self, p, targets, image_size):
         tcls, tbox, indices, anch = [], [], [], []
 
         gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
 
-        for i in range(len(grids)):
+        for i in range(self.nl):
             # ----------- grid 大小 -----------
-            ng = grids[i]
+            (nb, _), ng, _ = torch.as_tensor(p[i].shape, device=self.device).split(2)
 
             # ----------- 图片 与 grid 的比值 -----------
             stride = image_size / ng
 
-            anchor = self.anchors[i]
+            # ----------- 锚框映射到 grid 大小 -----------
+            anchor = self.anchors[i] / stride[[1, 0]]
 
             # ----------- box 映射到网格 坐标和长宽 -----------
             gain[2:] = (1 / stride)[[1, 0, 1, 0]]
 
             t = torch.Tensor(size=(0, 7)).to(self.device)
 
-            for tb in targets * gain:
+            for si in range(nb):
+                tb = targets[targets[:, 0] == si] * gain
+
                 # ----------- 计算 锚框 与 长宽 的 iou -----------
                 gwh = tb[:, 4:6]
                 iou = bbox_iou(anchor, gwh, in_fmt='wh')
@@ -209,15 +207,13 @@ class YoloLossV4(YoloLoss):
         return tcls, tbox, indices, anch
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
-
         bs = preds[0].shape[0]
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lbox = torch.zeros(1, dtype=torch.float32, device=self.device)
         lobj = torch.zeros(1, dtype=torch.float32, device=self.device)
 
-        tcls, tbox, indices, anchors = self.build_targets(targets, grids, image_size)
+        tcls, tbox, indices, anchors = self.build_targets(preds, targets, image_size)
 
         for i, pi in enumerate(preds):
             b, a, gj, gi = indices[i]
@@ -258,21 +254,14 @@ class YoloLossV4(YoloLoss):
 
 class YoloLossV7(YoloLoss):
 
-    def build_targets(self, targets, grids, image_size):
-        """
-
-        :param image_size:
-        :param targets: 归一化的标签
-        :param grids: 网格大小
-        :return:
-        """
+    def build_targets(self, p, targets, image_size):
         tcls, tbox, indices, anch = [], [], [], []
 
         gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
 
-        for i in range(len(grids)):
+        for i in range(self.nl):
             # ----------- grid 大小 -----------
-            ng = grids[i]
+            (nb, _), ng, _ = torch.as_tensor(p[i].shape, device=self.device).split(2)
 
             # ----------- 网格 ——----------
             x, y = torch.tensor([[0, 0],
@@ -287,7 +276,7 @@ class YoloLossV7(YoloLoss):
             stride = image_size / ng
 
             # ----------- 锚框映射到 grid 大小 -----------
-            anchor = self.anchors[i]
+            anchor = self.anchors[i] / stride[[1, 0]]
 
             na = len(anchor)
 
@@ -296,7 +285,9 @@ class YoloLossV7(YoloLoss):
 
             t = torch.Tensor(size=(0, 9)).to(self.device)
 
-            for tb in targets * gain:
+            for si in range(nb):
+                tb = targets[targets[:, 0] == si] * gain
+
                 nb, cls, cx, cy, gw, gh = tb.unbind(1)
 
                 # ----------- 选择目标点 1 格距离内的网格用于辅助预测 -----------
@@ -348,15 +339,13 @@ class YoloLossV7(YoloLoss):
         return tcls, tbox, indices, anch
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi.shape[-3:-1], device=self.device) for pi in preds]
-
         bs = preds[0].shape[0]
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lbox = torch.zeros(1, dtype=torch.float32, device=self.device)
         lobj = torch.zeros(1, dtype=torch.float32, device=self.device)
 
-        tcls, tbox, indices, anchors = self.build_targets(targets, grids, image_size)
+        tcls, tbox, indices, anchors = self.build_targets(preds, targets, image_size)
 
         for i, pi in enumerate(preds):
 

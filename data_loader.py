@@ -27,9 +27,9 @@ class MyDataSet(VOCDetection):
     def __getitem__(self, item):
         image, bbox_params, classes = super().__getitem__(item)
 
-        # io.visualize(image, bbox_params, classes, CLASSES_NAME)
-
         resize_sample = ResizeLongestPaddingShort(self.image_size, shuffle=False)(image=image, bbox_params=bbox_params)
+
+        # io.visualize(resize_sample['image'], resize_sample['bbox_params'], classes, self.id2name)
 
         sample = self.transform(image=resize_sample['image'], bboxes=resize_sample['bbox_params'], classes=classes)
 

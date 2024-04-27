@@ -17,6 +17,7 @@ class VOCDetection(Dataset):
         self._imgpath = os.path.join(root_dir, "JPEGImages", "%s.jpg")
         self._imgsetpath = os.path.join(root_dir, "ImageSets", "Main", "%s.txt")
 
+        self.id2name = class_name
         self.name2id = dict(zip(class_name.values(), range(len(class_name))))
 
         self.image_size = image_size

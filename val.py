@@ -59,8 +59,7 @@ def run(val_loader,
         preds = non_max_suppression(preds, conf_thres, iou_thres, max_det)
 
         for si, pred in enumerate(preds):
-            labels = targets[si, :, 1:]
-            labels = labels[labels[:, 0] > 0].to(device)
+            labels = targets[targets[:, 0] == si, 1:]
             labels[:, 0] = labels[:, 0] - 1
             nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
             correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
@@ -107,18 +106,20 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
     parser.add_argument("--cfg", type=str, default="./models/yolov7l.yaml", help="model.yaml path")
+    parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
-    parser.add_argument("--conf-thres", type=float, default=0.001, help="confidence threshold")
+    parser.add_argument("--conf-thres", type=float, default=0.3, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.6, help="NMS IoU threshold")
     parser.add_argument("--max-det", type=int, default=300, help="maximum detections per image")
-    parser.add_argument("--resume", default='./logs/train/exp1/weights/last.pt', help="resume most recent training")
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp1/weights/best.pt",
+                        help="model path(s)")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
 
-    parser.add_argument("--workers", type=int, default=3, help="max dataloader workers (per RANK in DDP mode)")
+    parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
     parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
@@ -136,15 +137,19 @@ def main():
     device = opt.device
     model = get_model(cfg)
     model.to(device)
+    ckpt = torch.load(opt.weights, map_location="cpu")['model']  # load
+    model.load_state_dict(ckpt)
 
     _, val_loader, names = get_loader(hyp, opt)
 
     history = History(project_dir=Path(opt.project),
                       name=opt.name,
-                      mode='val',
-                      save_period=opt.save_period)
+                      mode='val')
 
-    run(val_loader, names, model, history, device)
+    run(val_loader, names, model, history, device,
+        conf_thres=opt.conf_thres,
+        iou_thres=opt.iou_thres,
+        plots=True)
 
 
 if __name__ == '__main__':

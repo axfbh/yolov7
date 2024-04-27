@@ -9,7 +9,7 @@ from ops.model.backbone.utils import _elandarknet_extractor
 from typing import List
 
 
-class YoloV7(BasicModel):
+class YoloV7(nn.Module):
     def __init__(self, anchors: List, num_classes: int, phi: str):
         super(YoloV7, self).__init__()
 
@@ -53,13 +53,6 @@ class YoloV7(BasicModel):
         self.head = YoloV7Head([transition_channels * 8, transition_channels * 16, transition_channels * 32],
                                anchors,
                                num_classes)
-        self.warmup()
-
-    def warmup(self):
-        super().warmup()
-        self.head.stride = self.stride
-        self.head.anchors /= self.head.stride.view(-1, 1, 1)
-        self.head.reset_parameters()
 
     def reset_parameters(self):
         for m in self.modules():
@@ -71,6 +64,7 @@ class YoloV7(BasicModel):
                 m.momentum = 0.03
 
     def forward(self, x):
+        _, _, H, W = x.size()
         x = self.backbone(x)
 
         feat1, feat2, feat3 = x['0'], x['1'], x['2']
@@ -98,7 +92,7 @@ class YoloV7(BasicModel):
         P4 = self.rep_conv_2(P4)
         P5 = self.rep_conv_3(P5)
 
-        return self.head([P3, P4, P5])
+        return self.head([P3, P4, P5], H, W)
 
 
 def get_model(cfg):

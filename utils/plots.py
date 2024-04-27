@@ -14,8 +14,8 @@ def output_to_target(output, max_det=300):
     for i, o in enumerate(output):
         box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)
         j = torch.full((conf.shape[0], 1), i)
-        targets.append(torch.cat((j, cls, box_convert(box, in_fmt='cxcywh', out_fmt='xyxy'), conf), 1))
-    return torch.cat(targets, 0).numpy()
+        targets.append(torch.cat((j, cls, box_convert(box, 'xyxy', 'cxcywh'), conf), 1))
+    return targets
 
 
 class Colors:
@@ -91,18 +91,20 @@ def plot_images(images, targets, names):
         mosaic = cv2.resize(mosaic, tuple(int(x * ns) for x in (w, h)))
 
     # Annotate
-    fs = int((h + w) * ns * 0.01)  # font size
-    # annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs, pil=True, example=names)
     im = Image.fromarray(mosaic)
     annotator = ImageDraw.Draw(im)
-    size = int((h + w) * ns * 0.01)  # font size
-    font = ImageFont.truetype('./Arial.ttf', size)
-    for i in range(min(max_subplots, len(images)) + 1):
+    fs = int((h + w) * ns * 0.01)  # font size
+    # size = int((h + w) * ns * 0.01)  # font size
+    # font = ImageFont.truetype('./utils/Arial.ttf', size)
+    # font.getsize = lambda x: font.getbbox(x)[2:4]
+    for i in range(i + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
         if len(targets) > 0:
             ti = targets[i]  # image targets
             ti = ti[ti[:, 1] > 0]
+            if isinstance(ti, torch.Tensor):
+                ti = ti.numpy()
             boxes = box_convert(torch.as_tensor(ti[:, 2:6]), in_fmt='cxcywh', out_fmt='xyxy').numpy().T
             classes = ti[:, 1].astype("int")
             labels = ti.shape[1] == 6  # labels if no conf column
@@ -122,18 +124,18 @@ def plot_images(images, targets, names):
                 cls = names[int(cls)] if names else cls
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = f"{cls}" if labels else f"{cls} {conf[j]:.1f}"
-                    p1 = (box[0], box[1])
+                    # p1 = (box[0], box[1])
                     # ------------- 画 box -------------
                     annotator.rectangle(box, width=round(fs / 10), outline=color)
 
                     # ------------- 画 label -------------
-                    w, h = font.getsize(label)  # text width, height
-                    outside = p1[1] - h >= 0  # label fits outside box
-                    annotator.rectangle(
-                        (
-                            p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1,
-                            p1[1] + 1 if outside else p1[1] + h + 1),
-                        fill=color,
-                    )
-                    annotator.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=(255, 255, 255), font=font)
+                    # w, h = font.getsize(label)  # text width, height
+                    # outside = p1[1] - h >= 0  # label fits outside box
+                    # annotator.rectangle(
+                    #     (
+                    #         p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1,
+                    #         p1[1] + 1 if outside else p1[1] + h + 1),
+                    #     fill=color,
+                    # )
+                    # annotator.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=(255, 255, 255), font=font)
     return im

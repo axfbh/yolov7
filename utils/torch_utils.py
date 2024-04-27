@@ -96,14 +96,15 @@ def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1,
     return scheduler
 
 
-def smart_resume(model, optimizer, save_path: Path = None):
+def smart_resume(model, optimizer, resume=False, save_path: Path = None):
     last_epoch = -1
     best_fitness = None
-    if not save_path.is_file():
+    if not resume or save_path is None or not save_path.is_file():
         LOGGER.warning(
-            f"{colorstr('Warning:')} path: {save_path} is not exist"
+            f"{colorstr('Warning:')} not resume parameters"
         )
-        return last_epoch, best_fitness
+        start_epoch = last_epoch + 1
+        return last_epoch, best_fitness, start_epoch
     # ------------ resume model ------------
     save_dict = torch.load(save_path, map_location='cpu')
 
@@ -137,7 +138,8 @@ def smart_resume(model, optimizer, save_path: Path = None):
             f"{colorstr('Warning')} cannot loaded the optimizer parameter into corresponding optimizer , but it doesnt affect the model working."
         )
 
-    return last_epoch, best_fitness
+    start_epoch = last_epoch + 1
+    return last_epoch, best_fitness, start_epoch
 
 
 def is_parallel(model):
