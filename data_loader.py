@@ -5,7 +5,6 @@ from omegaconf import OmegaConf
 import torch
 from torch.utils.data import DataLoader
 
-import cv2
 import numpy as np
 
 import albumentations as A
@@ -13,8 +12,8 @@ from albumentations.pytorch import ToTensorV2
 
 from ops.dataset.voc_dataset import VOCDetection
 from ops.dataset.utils import detect_collate_fn
-from ops.transform.resize_maker import ResizeLongestPaddingShort
 import ops.cv.io as io
+from ops.transform.resize_maker import ResizeLongestPaddingShort
 from utils.logging import LOGGER, colorstr
 
 np.random.seed(0)

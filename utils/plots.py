@@ -1,12 +1,73 @@
 import PIL.Image
 import numpy as np
 import cv2
-from pathlib import Path
 import math
 from PIL import Image, ImageDraw, ImageFont
 
 import torch
 from torchvision.ops.boxes import box_convert
+from typing import Union
+
+
+class Annotator:
+    def __init__(self, im: Union[Image.Image, np.ndarray], line_width=None, font_size=None, font="Arial.ttf"):
+        input_is_pil = isinstance(im, Image.Image)
+        self.im = im if input_is_pil else Image.fromarray(im)
+        self.lw = line_width or max(round(sum(im.size if input_is_pil else im.shape) / 2 * 0.003), 2)
+        self.draw = ImageDraw.Draw(self.im)
+        try:
+            size = font_size or max(round(sum(self.im.size) / 2 * 0.035), 12)
+            self.font = ImageFont.truetype(font, size)
+        except Exception:
+            self.font = ImageFont.load_default()
+        self.font.getsize = lambda x: self.font.getbbox(x)[2:4]  # text width, height
+
+    def box_label(self, box, label="", color=(128, 128, 128), txt_color=(255, 255, 255)):
+        """Add one xyxy box to image with label."""
+        if isinstance(box, torch.Tensor):
+            box = box.tolist()
+
+        p1 = (box[0], box[1])
+        self.draw.rectangle(box, width=self.lw, outline=color)  # box
+
+        if label:
+            w, h = self.font.getsize(label)  # text width, height
+            outside = p1[1] - h >= 0  # label fits outside box
+            self.draw.rectangle(
+                (p1[0], p1[1] - h if outside else p1[1], p1[0] + w + 1, p1[1] + 1 if outside else p1[1] + h + 1),
+                fill=color,
+            )
+            self.draw.text((p1[0], p1[1] - h if outside else p1[1]), label, fill=txt_color, font=self.font)
+
+    def rectangle(self, xy, fill=None, outline=None, width=1):
+        self.draw.rectangle(xy, fill, outline, width)
+
+    def text(self, xy, text, txt_color=(255, 255, 255)):
+        if "\n" in text:
+            lines = text.split("\n")
+            _, h = self.font.getsize(text)
+            for line in lines:
+                self.draw.text(xy, line, fill=txt_color, font=self.font)
+                xy[1] += h
+        else:
+            self.draw.text(xy, text, fill=txt_color, font=self.font)
+
+    def fromarray(self, im: Union[Image.Image, np.ndarray]):
+        """Update self.im from a numpy array."""
+        self.im = im if isinstance(im, Image.Image) else Image.fromarray(im)
+        self.draw = ImageDraw.Draw(self.im)
+
+    def result(self):
+        """Return annotated image as array."""
+        return np.asarray(self.im)
+
+    def show(self, title=None):
+        """Show the annotated image."""
+        Image.fromarray(np.asarray(self.im)).show(title)
+
+    def save(self, filename="image.jpg"):
+        """Save the annotated image to 'filename'."""
+        cv2.imwrite(filename, np.asarray(self.im))
 
 
 def output_to_target(output, max_det=300):
@@ -60,7 +121,7 @@ class Colors:
 colors = Colors()  # create instance for 'from utils.plots import colors'
 
 
-def plot_images(images, targets, names) -> PIL.Image:
+def plot_images(images, targets, names) -> Annotator:
     # Plot image grid with labels
     if isinstance(images, torch.Tensor):
         images = images.cpu().float().numpy()
@@ -94,12 +155,8 @@ def plot_images(images, targets, names) -> PIL.Image:
         mosaic = cv2.resize(mosaic, tuple(int(x * ns) for x in (w, h)))
 
     # Annotate
-    im = Image.fromarray(mosaic)
-    annotator = ImageDraw.Draw(im)
     fs = int((h + w) * ns * 0.01)  # font size
-    size = int((h + w) * ns * 0.01)  # font size
-    font = ImageFont.truetype('./utils/Arial.ttf', size)
-    font.getsize = lambda x: font.getbbox(x)[2:4]
+    annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs, font='./utils/Arial.tff')
     for i in range(i + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
@@ -125,22 +182,5 @@ def plot_images(images, targets, names) -> PIL.Image:
                 cls = names[int(cls)] if names else cls
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = f"{cls}" if labels else f"{cls} {conf[j]:.1f}"
-
-                    if isinstance(box, torch.Tensor):
-                        box = box.tolist()
-
-                    p1 = (box[0], box[1])
-                    # ------------- 画 box -------------
-                    annotator.rectangle(box, width=round(fs / 10), outline=color)
-
-                    # ------------- 画 label -------------
-                    fw, fh = font.getsize(label)  # text width, height
-                    outside = p1[1] - fh >= 0  # label fits outside box
-                    annotator.rectangle(
-                        (
-                            p1[0], p1[1] - fh if outside else p1[1], p1[0] + fw + 1,
-                            p1[1] + 1 if outside else p1[1] + fh + 1),
-                        fill=color,
-                    )
-                    annotator.text((p1[0], p1[1] - fh if outside else p1[1]), label, fill=(255, 255, 255), font=font)
-    return im
+                    annotator.box_label(box, label, color=color)
+    return annotator
