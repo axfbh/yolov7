@@ -102,7 +102,7 @@ class History:
             weights_pt_path = self.weight_dir.joinpath(f'weights{str(epoch)}.pt')
             torch.save(save_dict, weights_pt_path)
 
-    # @threaded
+    @threaded
     def save_image(self, image: Union[Annotator, np.ndarray], mode='label'):
         if isinstance(image, Annotator):
             image.save(str(self.exp_dir.joinpath(f"image_{mode}_{str(self.save_id)}.jpg")))
