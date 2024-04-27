@@ -32,8 +32,6 @@ def run(val_loader,
         criterion=None):
     model.eval()
 
-    metric = {}
-
     s = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
     stream = tqdm(val_loader, desc=s, bar_format="{l_bar}{bar:10}{r_bar}")
 
@@ -97,10 +95,10 @@ def run(val_loader,
 
     pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
     LOGGER.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
-    metric['map50'] = map50
-    metric['map'] = map
-    metric['mp'] = mp
-    metric['mr'] = mr
+    metric = {'mao50': map50,
+              'map': map,
+              'mp': mp,
+              'mr': mr}
     return metric
 
 
