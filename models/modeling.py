@@ -3,7 +3,6 @@ import torch
 from ops.model.neck.spp import SPPCSPC
 from ops.model.head.yolo_head import YoloV7Head
 from ops.model.misc.rep_conv import RepConv2d
-from ops.model.backbone.base_model import BasicModel
 from ops.model.backbone.elandarknet53 import ElanDarkNet53, CBS, MP1, Elan
 from ops.model.backbone.utils import _elandarknet_extractor
 from typing import List
