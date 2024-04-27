@@ -67,7 +67,7 @@ class Annotator:
 
     def save(self, filename="image.jpg"):
         """Save the annotated image to 'filename'."""
-        cv2.imwrite(filename, np.asarray(self.im))
+        cv2.imwrite(filename, cv2.cvtColor(np.asarray(self.im),cv2.COLOR_RGB2BGR))
 
 
 def output_to_target(output, max_det=300):

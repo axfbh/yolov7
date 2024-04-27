@@ -23,7 +23,7 @@ from utils.plots import plot_images, output_to_target
 def run(val_loader,
         names,
         model,
-        history,
+        history: History,
         device,
         conf_thres=0.001,
         iou_thres=0.6,  # NMS IoU threshold
@@ -84,8 +84,10 @@ def run(val_loader,
 
         if plots and batch_i < 3:
             plt_l_image = plot_images(images, targets, names)  # labels
+            history.save_image(plt_l_image)
+
             plt_p_image = plot_images(images, output_to_target(preds), names)  # pred
-            plt_p_image.show()
+            history.save_image(plt_p_image, mode='pred')
 
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():

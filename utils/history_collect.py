@@ -1,17 +1,16 @@
 import os
+import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union
-from utils import threaded
+
+import numpy as np
+import cv2
+
 import torch
 
-from scipy.signal import savgol_filter
-
-import matplotlib
-from matplotlib import pyplot as plt
-
-matplotlib.use('Agg')
-import yaml
+from utils import threaded
+from utils.plots import Annotator
 
 
 def yaml_save(file: Union[str, Path] = "data.yaml", data={}):
@@ -52,11 +51,13 @@ class History:
 
         i = 0
         while True:
-            exp_dir = project_dir.joinpath(name + str(i) if i else '')
+            exp_dir = project_dir.joinpath(name + str(i) if i else name + '')
             if not exp_dir.exists():
                 exp_dir.mkdir()
-                weight_dir = exp_dir.joinpath('weights')
-                weight_dir.mkdir()
+                if mode == 'train':
+                    weight_dir = exp_dir.joinpath('weights')
+                    weight_dir.mkdir()
+                    self.weight_dir = weight_dir
                 break
             i += 1
 
@@ -65,9 +66,9 @@ class History:
                 yaml_save(exp_dir.joinpath(f"{k}.yaml"), v)
 
         self.exp_dir = exp_dir
-        self.weight_dir = weight_dir
         self.best_fitness = best_fitness
         self.save_period = save_period
+        self.save_id = 1
 
     @threaded
     def save(self, model, optimizer, epoch, fitness: float):
@@ -98,5 +99,10 @@ class History:
             torch.save(save_dict, weights_pt_path)
 
     # @threaded
-    # def save_image(self, image):
+    def save_image(self, image: Union[Annotator, np.ndarray], mode='label'):
+        if isinstance(image, Annotator):
+            image.save(str(self.exp_dir.joinpath(f"image_{mode}_{str(self.save_id)}.jpg")))
+        else:
+            cv2.imwrite(str(self.exp_dir.joinpath(f"image_{mode}_{str(self.save_id)}.jpg")), image)
 
+        self.save_id += 1
