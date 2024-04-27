@@ -113,7 +113,7 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
     save_dict = torch.load(save_path, map_location='cpu')
 
     # ------------ resume model ------------
-    model_param = save_dict['model']
+    model_param = save_dict['model'].state_dict()
     _load_from(model, model_param)
 
     last_epoch = save_dict.get('last_epoch', last_epoch)
