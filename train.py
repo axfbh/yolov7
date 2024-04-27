@@ -9,7 +9,7 @@ import torch
 import numpy as np
 
 from models.modeling import get_model
-from data_loader import get_loader
+from dataloader import get_loader
 
 from ops.loss.yolo_loss import YoloLossV7
 from ops.metric.DetectionMetric import fitness
@@ -96,16 +96,14 @@ def train(train_loader, val_loader, hyp, opt, names):
         stream = tqdm(train_loader, bar_format=TQDM_BAR_FORMAT)
 
         optimizer.zero_grad()
-        for i, (images, targets) in enumerate(stream):
+        for i, (images, targets, shape) in enumerate(stream):
             images = images.to(device) / 255.
 
-            _, _, h, w = images.size()
-
-            image_size = torch.tensor([h, w])
+            image_size = torch.as_tensor(shape, device=device)
 
             preds = model(images)
 
-            loss, loss_items = criterion(preds, targets.to(device), image_size.to(device))
+            loss, loss_items = criterion(preds, targets.to(device), image_size)
 
             scaler.scale(loss).backward()
 
@@ -127,7 +125,7 @@ def train(train_loader, val_loader, hyp, opt, names):
             lr = optimizer.param_groups[0]['lr']
             stream.set_description(
                 ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
-                (epoch, mem, f"{h}x{w}", lbox.avg, lobj.avg, lcls.avg, lr)
+                (epoch, mem, f"{shape[0]}x{shape[1]}", lbox.avg, lobj.avg, lcls.avg, lr)
             )
 
         val_metric = validate.run(val_loader=val_loader,

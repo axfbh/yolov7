@@ -32,4 +32,4 @@ def detect_collate_fn(batch):
 
     batched_labels = batch_labels(labels)
 
-    return batched_imgs, batched_labels
+    return batched_imgs, batched_labels, batched_imgs.shape[-2:]

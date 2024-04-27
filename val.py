@@ -12,7 +12,7 @@ from ops.metric.DetectionMetric import process_batch, ap_per_class
 
 from models.modeling import get_model
 from ops.detection.nms import non_max_suppression
-from data_loader import get_loader
+from dataloader import get_loader
 
 from utils.logging import print_args, LOGGER
 from utils.history_collect import History
@@ -47,14 +47,14 @@ def run(val_loader,
     niou = iouv.numel()
     single_cls = False
 
-    for batch_i, (images, targets) in enumerate(stream):
+    for batch_i, (images, targets, shape) in enumerate(stream):
         images = images.to(device, non_blocking=True) / 255.
         targets = targets.to(device)
 
         preds, train_out = model(images)
 
         if criterion:
-            image_size = torch.as_tensor(images.shape[2:]).to(device)
+            image_size = torch.as_tensor(shape, device=device)
             loss += criterion(train_out, targets, image_size)[1]  # box, obj, cls
 
         preds = non_max_suppression(preds, conf_thres, iou_thres, max_det)
