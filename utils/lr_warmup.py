@@ -107,9 +107,6 @@ class WarmupCosineLR(_LRScheduler):
         self.warmup_factor = warmup_factor
         self.warmup_iters = warmup_iters
 
-        if self.warmup_factor > 1.:
-            raise ValueError('warmup_factor should be less than or equal to 1.')
-
         super(WarmupCosineLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
