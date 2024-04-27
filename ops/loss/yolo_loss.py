@@ -22,7 +22,6 @@ class YoloLoss(BasicLoss):
         self.nl = m.nl
         self.na = m.na
         self.num_classes = m.num_classes
-        self.g = self.hyp['g']
 
         self.balance = [4.0, 1.0, 0.4]
 
@@ -253,6 +252,9 @@ class YoloLossV4(YoloLoss):
 
 
 class YoloLossV7(YoloLoss):
+    def __init__(self, model):
+        super(YoloLossV7, self).__init__(model)
+        self.g = self.hyp['g']
 
     def build_targets(self, p, targets, image_size):
         tcls, tbox, indices, anch = [], [], [], []
