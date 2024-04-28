@@ -16,7 +16,7 @@ from ops.metric.DetectionMetric import fitness
 from utils.history_collect import History, AverageMeter
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
 from utils.logging import print_args, LOGGER
-from utils.lr_warmup import warmup_factor_at_iter
+from utils.lr_warmup import warmup_factor_at_iter, WarmupLR
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -25,20 +25,25 @@ TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 # hyp: hyper parameter
 # opt: options
 def train(model, train_loader, val_loader, device, hyp, opt, names):
-    # -------- 梯度优化器 --------
+    nb = opt.batch_size
+    nbs = 64  # nominal batch size
+    accumulate = max(round(nbs / nb), 1)
+    warmup_iter = hyp["warmup_epochs"] * nb
+
+    # ---------- 梯度优化器 ----------
     optimizer = smart_optimizer(model,
                                 opt.optimizer,
                                 hyp.lr,
                                 hyp.momentum,
                                 hyp.weight_decay)
 
-    # -------- 梯度缩放器 --------
+    # ---------- 梯度缩放器 ----------
     scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    # -------- 模型参数平滑器 --------
+    # ---------- 模型参数平滑器 ----------
     ema = ModelEMA(model)
 
-    # -------- 模型权重加载器 --------
+    # ---------- 模型权重加载器 ----------
     last_epoch, best_fitness, start_epoch, end_epoch = smart_resume(model,
                                                                     optimizer,
                                                                     ema,
@@ -46,13 +51,23 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                                                                     opt.resume,
                                                                     Path(opt.weights))
 
-    # -------- 学习率优化器 and 学习率预热器 --------
+    # ---------- 学习率优化器 ----------
     scheduler = smart_scheduler(optimizer,
                                 opt.scheduler,
                                 last_epoch,
                                 T_max=end_epoch)
 
-    # -------- 每个 epoch 的 loss 记录工具 --------
+    # ---------- 学习率预热 ----------
+    warmer = WarmupLR(optimizer,
+                      scheduler,
+                      last_epoch=last_epoch,
+                      epoch=end_epoch,
+                      momentum=hyp.momentum,
+                      warmup_bias_lr=hyp.warmup_bias_lr,
+                      warmup_iter=warmup_iter,
+                      warmup_momentum=hyp.warmup_momentum)
+
+    # ---------- 记录工具 ----------
     history = History(project_dir=Path(opt.project),
                       name=opt.name,
                       mode='train',
@@ -61,12 +76,6 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
     criterion = YoloLossV7(model)
-
-    # -------- Start training --------
-    nb = opt.batch_size
-    nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / nb), 1)
-    warmup_iter = hyp["warmup_epochs"] * nb
 
     for epoch in range(start_epoch, end_epoch):
         model.train()
@@ -84,14 +93,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
         for i, (images, targets, shape) in enumerate(stream):
             it = i + nb * epoch  # number integrated batches (since train start)
 
-            warmup_factor_at_iter(optimizer,
-                                  scheduler,
-                                  it,
-                                  epoch=epoch,
-                                  momentum=hyp.momentum,
-                                  warmup_bias_lr=hyp.warmup_bias_lr,
-                                  warmup_iter=warmup_iter,
-                                  warmup_momentum=hyp.warmup_momentum)
+            warmer.step(it)
 
             images = images.to(device) / 255.
 
