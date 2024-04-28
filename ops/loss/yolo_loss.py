@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from abc import abstractmethod
-from ops.iou import bbox_iou, iou_loss
+from ops.detection.utils.iou import bbox_iou, iou_loss
 from ops.loss.basic_loss import BasicLoss
 from ops.metric.DetectionMetric import smooth_BCE
 from utils.torch_utils import de_parallel

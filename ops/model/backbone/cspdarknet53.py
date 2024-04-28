@@ -1,31 +1,17 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from ops.model.bn.adaptivegn import AdaptiveGroupNorm
+from functools import partial
+from torchvision.ops.misc import Conv2dNormActivation
 
-
-class Mish(nn.Module):
-    def __init__(self):
-        super(Mish, self).__init__()
-
-    def forward(self, x):
-        return x * torch.tanh(F.softplus(x))
-
-
-class ConvolutionalLayer(nn.Sequential):
-    def __init__(self, in_ch, out_ch, k, s=1, p=None):
-        p = (k - 1) // 2 if p is None else p
-        super(ConvolutionalLayer, self).__init__(
-            nn.Conv2d(in_ch, out_ch, k, stride=s, padding=p, bias=False),
-            nn.BatchNorm2d(out_ch),
-            Mish(),
-        )
+BN = partial(nn.BatchNorm2d, eps=0.001, momentum=0.03)
+CBM = partial(Conv2dNormActivation, bias=False, inplace=True, norm_layer=BN, activation_layer=nn.Mish)
 
 
 class DownSampleLayer(nn.Sequential):
     def __init__(self, in_ch, out_ch):
         super(DownSampleLayer, self).__init__(
-            ConvolutionalLayer(in_ch, out_ch, 3, 2)
+            CBM(in_ch, out_ch, 3, 2)
         )
 
 
@@ -33,13 +19,13 @@ class ResidualLayer(nn.Module):
     def __init__(self, in_ch, out_ch):
         super(ResidualLayer, self).__init__()
         self.conv = nn.Sequential(
-            ConvolutionalLayer(in_ch, out_ch, 1),
+            CBM(in_ch, out_ch, 1),
             nn.Conv2d(out_ch, in_ch, 3, 1, 1, bias=False)
         )
 
         self.bn = nn.BatchNorm2d(in_ch)
 
-        self.mish = Mish()
+        self.mish = nn.Mish()
 
     def forward(self, x):
         out = self.conv(x)
@@ -51,25 +37,17 @@ class WrapLayer(nn.Module):
     def __init__(self, in_ch, count=1, first=False):
         super(WrapLayer, self).__init__()
         out_ch = in_ch if first else in_ch // 2
-        self.trans_0 = ConvolutionalLayer(in_ch,
-                                          out_ch,
-                                          1)
+        self.trans_0 = CBM(in_ch, out_ch, 1)
 
-        self.trans_1 = ConvolutionalLayer(in_ch,
-                                          out_ch,
-                                          1)
+        self.trans_1 = CBM(in_ch, out_ch, 1)
 
-        self.trans_cat = ConvolutionalLayer(in_ch * 2 if first else in_ch,
-                                            in_ch,
-                                            1)
+        self.trans_cat = CBM(in_ch * 2 if first else in_ch, in_ch, 1)
 
         self.make_layers = nn.ModuleList()
         for _ in range(count):
             self.make_layers.append(ResidualLayer(out_ch, in_ch // 2))
 
-        self.conv1 = ConvolutionalLayer(out_ch,
-                                        out_ch,
-                                        1)
+        self.conv1 = CBM(out_ch, out_ch, 1)
 
     def forward(self, x):
         # ----------- 两分支 -----------
@@ -90,7 +68,7 @@ class CSPDarkNet53(nn.Module):
         super(CSPDarkNet53, self).__init__()
 
         self.stem = nn.Sequential(
-            ConvolutionalLayer(3, 32, 3),
+            CBM(3, 32, 3),
             DownSampleLayer(32, 64),
             WrapLayer(64, 1, first=True),
         )
@@ -118,6 +96,9 @@ class CSPDarkNet53(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(1024, num_classes)
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")

@@ -25,7 +25,8 @@ class PaddingImage(DualTransform):
 
         return {"image": image,
                 "mask": mask,
-                "bbox_params": bbox_params}
+                "bbox_params": bbox_params,
+                "pad": (self.pad_l, self.pad_t, self.pad_r, self.pad_b)}
 
     def apply(self, image: np.ndarray):
         image = image.copy()

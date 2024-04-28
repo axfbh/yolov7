@@ -10,7 +10,7 @@ from torchvision.ops.boxes import box_convert
 from ops.metric.DetectionMetric import process_batch, ap_per_class
 
 from models.modeling import get_model
-from ops.detection.nms import non_max_suppression
+from ops.detection.utils.nms import non_max_suppression
 from dataloader import get_loader
 
 from utils.logging import print_args, LOGGER
@@ -111,7 +111,7 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp2/weights/best.pt",
                         help="model path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
