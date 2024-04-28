@@ -26,13 +26,12 @@ class WarmupLR:
         self.last_iter += 1
         it = self.last_iter
 
-        if it >= self.warmup_iter:
-            return
-
-        last_lr = self.scheduler.get_last_lr()
-        for j, x in enumerate(self.optimizer.param_groups):
-            x["lr"] = np.interp(it,
-                                [0, self.warmup_iter],
-                                [self.warmup_bias_lr if j == 0 else 0.0, x["initial_lr"] * last_lr[j]])
-            if "momentum" in x:
-                x["momentum"] = np.interp(it, [0, self.warmup_iter], [self.warmup_momentum, self.momentum])
+        if it <= self.warmup_iter:
+            for j, x in enumerate(self.optimizer.param_groups):
+                x["lr"] = np.interp(it,
+                                    [0, self.warmup_iter],
+                                    [self.warmup_bias_lr if j == 0 else 0.0, x["initial_lr"]])
+                if "momentum" in x:
+                    x["momentum"] = np.interp(it,
+                                              [0, self.warmup_iter],
+                                              [self.warmup_momentum, self.momentum])

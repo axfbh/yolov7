@@ -38,9 +38,9 @@ def smart_optimizer(model, name: str = "Adam", lr=0.001, momentum=0.9, decay=1e-
             if p_name == "bias":  # bias (no decay)
                 g[2].append(p)
             elif p_name == "weight" and isinstance(v, bn):  # weight (no decay)
-                g[1].append(p)
+                g[1].append(p)  # BN weight
             else:
-                g[0].append(p)  # weight (with decay)
+                g[0].append(p)  # Conv weight (with decay)
 
     if name == "Adam":
         optimizer = torch.optim.Adam(g[2], lr=lr, betas=(momentum, 0.999))  # adjust beta1 to momentum

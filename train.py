@@ -29,14 +29,14 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)
     nb = len(train_loader)  # number of batches
-    warmup_iter = hyp["warmup_epochs"] * nb
+    warmup_iter = hyp['warmup_epochs'] * nb
 
     # ---------- 梯度优化器 ----------
     optimizer = smart_optimizer(model,
                                 opt.optimizer,
-                                hyp.lr,
-                                hyp.momentum,
-                                hyp.weight_decay)
+                                hyp['lr'],
+                                hyp['momentum'],
+                                hyp['weight_decay'])
 
     # ---------- 梯度缩放器 ----------
     scaler = torch.cuda.amp.GradScaler(enabled=True)
@@ -63,10 +63,10 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       scheduler,
                       last_iter=last_iter,
                       epoch=end_epoch,
-                      momentum=hyp.momentum,
-                      warmup_bias_lr=hyp.warmup_bias_lr,
+                      momentum=hyp['momentum'],
+                      warmup_bias_lr=hyp['warmup_bias_lr'],
                       warmup_iter=warmup_iter,
-                      warmup_momentum=hyp.warmup_momentum)
+                      warmup_momentum=hyp['warmup_momentum'])
 
     # ---------- 记录工具 ----------
     history = History(project_dir=Path(opt.project),
