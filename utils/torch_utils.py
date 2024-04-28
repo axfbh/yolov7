@@ -1,15 +1,14 @@
 import os
 import math
 from copy import deepcopy
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 from torch.nn.parameter import is_lazy
+from torchvision.ops.boxes import box_convert
 
 from utils.logging import LOGGER, colorstr
-from pathlib import Path
-from utils.lr_warmup import WarmupMultiStepLR, WarmupCosineLR, WarmupPolynomialLR
-from torchvision.ops.boxes import box_convert
 
 
 @torch.no_grad()
@@ -64,39 +63,30 @@ def smart_optimizer(model, name: str = "Adam", lr=0.001, momentum=0.9, decay=1e-
     return optimizer
 
 
-def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1,
-                    warmup_method='linear',
-                    warmup_factor=0.1,
-                    warmup_iters=3,
-                    **kwargs):
+def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1, **kwargs):
     if name == "Cosine":
-        scheduler = WarmupCosineLR(optimizer,
-                                   last_epoch=last_epoch,
-                                   warmup_method=warmup_method,
-                                   warmup_factor=warmup_factor,
-                                   warmup_iters=warmup_iters,
-                                   **kwargs)
+        # T_max:end_epoch
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
+                                                               last_epoch=last_epoch,
+                                                               **kwargs)
     elif name == "MultiStep":
-        scheduler = WarmupMultiStepLR(optimizer,
-                                      last_epoch=last_epoch,
-                                      warmup_method=warmup_method,
-                                      warmup_factor=warmup_factor,
-                                      warmup_iters=warmup_iters,
-                                      **kwargs)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                         last_epoch=last_epoch,
+                                                         **kwargs)
     elif name == "Polynomial":
-        scheduler = WarmupPolynomialLR(optimizer,
-                                       last_epoch=last_epoch,
-                                       warmup_method=warmup_method,
-                                       warmup_factor=warmup_factor,
-                                       warmup_iters=warmup_iters,
-                                       **kwargs)
+        scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer,
+                                                          last_epoch=last_epoch,
+                                                          **kwargs)
+    elif name == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                        last_epoch=last_epoch,
+                                                        **kwargs)
     else:
         raise NotImplementedError(f"Optimizer {name} not implemented.")
 
     args = {k: v for k, v in kwargs.items()}
     LOGGER.info(
-        f"{colorstr('scheduler:')} {type(scheduler).__name__}(warmup_method={warmup_method}, warmup_factor={warmup_factor},warmup_iters={warmup_iters}, "
-        + ", ".join(f"{k}={v}" for k, v in args.items()) + ")"
+        f"{colorstr('scheduler:')} " + ", ".join(f"{k}={v}" for k, v in args.items()) + ")"
     )
     return scheduler
 

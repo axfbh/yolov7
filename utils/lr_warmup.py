@@ -1,166 +1,37 @@
-import warnings
 import math
 from typing import List
-
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from bisect import bisect_right
+import numpy as np
 
 
-def _get_warmup_factor_at_iter(method: str, iter: int, warmup_iters: int, warmup_factor: float) -> float:
+def warmup_factor_at_iter(optimizer,
+                          scheduler,
+                          it: int,
+                          epoch: int,
+                          momentum: float,
+                          warmup_iter: int,
+                          warmup_bias_lr: float,
+                          warmup_momentum: float):
     """
-    Return the learning rate warmup factor at a specific iteration.
-    See https://arxiv.org/abs/1706.02677 for more details.
-
     Args:
-        method (str): warmup method; either "constant" or "linear".
-        iter (int): iteration at which to calculate the warmup factor.
-        warmup_iters (int): the number of warmup iterations.
-        warmup_factor (float): the base warmup factor (the meaning changes according
-            to the method used).
+        optimizer : 学习率优化器
+        scheduler : 学习率调整器
+        it (int): number integrated batches (since train start)
+        epoch (int): the number of epoch.
+        momentum (float): optimizer momentum
+        warmup_iter (int): the number of warmup iterations.
+        warmup_bias_lr (float): warmup bias learning
+        warmup_momentum (float): warmup momentum.
 
-    Returns:
-        float: the effective warmup factor at the given iteration.
     """
-    if iter >= warmup_iters:
-        return 1.0
+    # bias lr falls from 0.1 to lr0
+    # all other lrs rise from 0.0 to lr0
+    if it > warmup_iter:
+        return
 
-    if method == "constant":
-        return warmup_factor
-    elif method == "linear":
-        alpha = iter / warmup_iters
-        return warmup_factor * (1 - alpha) + alpha
-    else:
-        raise ValueError("Unknown warmup method: {}".format(method))
-
-
-def get_multistep_lr(base_lr, warmup_factor, gamma, milestones, current_epoch):
-    return base_lr * warmup_factor * gamma ** bisect_right(milestones, current_epoch)
-
-
-def get_cosine_lr(base_lr, warmup_factor, current_epoch, end_epoch):
-    return base_lr * warmup_factor * 0.5 * (1.0 + math.cos(math.pi * current_epoch / end_epoch))
-
-
-def get_polynomial_lr(base_lr, warmup_factor, warmup_iters, power, current_epoch, end_epoch):
-    return base_lr * warmup_factor * ((1.0 - (current_epoch - warmup_iters) / (current_epoch - warmup_iters)) / (
-            1.0 - (current_epoch - 1 - warmup_iters) / (end_epoch - warmup_iters))) ** power
-
-
-class WarmupMultiStepLR(_LRScheduler):
-    def __init__(self,
-                 optimizer: Optimizer,
-                 milestones: List[int],
-                 gamma: float = 0.1,
-                 last_epoch=-1,
-                 warmup_method: str = 'linear',
-                 warmup_factor: float = 0.1,
-                 warmup_iters: int = 3):
-
-        if warmup_factor > 1.:
-            raise ValueError('warmup_factor should be less than or equal to 1.')
-
-        if not list(milestones) == sorted(milestones):
-            raise ValueError(
-                "Milestones should be a list of" " increasing integers. Got {}", milestones
-            )
-        self._last_lr = None
-        self.gamma = gamma
-        self.milestones = milestones
-        self.last_epoch = last_epoch
-        self.warmup_method = warmup_method
-        self.warmup_factor = warmup_factor
-        self.warmup_iters = warmup_iters
-
-        super(WarmupMultiStepLR, self).__init__(optimizer, last_epoch)
-
-    def get_lr(self):
-        lr_group = []
-        for base_lr in self.base_lrs:
-            warmup_factor = _get_warmup_factor_at_iter(self.warmup_method,
-                                                       self.last_epoch,
-                                                       self.warmup_iters,
-                                                       self.warmup_factor)
-
-            lr_group.append(get_multistep_lr(base_lr, warmup_factor, self.gamma, self.milestones, self.last_epoch))
-        return lr_group
-
-    def _compute_values(self) -> List[float]:
-        # The new interface
-        return self.get_lr()
-
-
-class WarmupCosineLR(_LRScheduler):
-    def __init__(self,
-                 optimizer: Optimizer,
-                 end_epoch,
-                 last_epoch=-1,
-                 warmup_method: str = "linear",
-                 warmup_factor: float = 0.1,
-                 warmup_iters: int = 3):
-        self.end_epoch = end_epoch
-        self._last_lr = None
-        self.last_epoch = last_epoch
-        self.warmup_method = warmup_method
-        self.warmup_factor = warmup_factor
-        self.warmup_iters = warmup_iters
-
-        super(WarmupCosineLR, self).__init__(optimizer, last_epoch)
-
-    def get_lr(self):
-        lr_group = []
-        for base_lr in self.base_lrs:
-            warmup_factor = _get_warmup_factor_at_iter(self.warmup_method,
-                                                       self.last_epoch,
-                                                       self.warmup_iters,
-                                                       self.warmup_factor)
-
-            lr_group.append(get_cosine_lr(base_lr, warmup_factor, self.last_epoch, self.end_epoch))
-        return lr_group
-
-    def _compute_values(self) -> List[float]:
-        # The new interface
-        return self.get_lr()
-
-
-class WarmupPolynomialLR(_LRScheduler):
-    def __init__(self,
-                 optimizer: Optimizer,
-                 end_epoch,
-                 power=1.0,
-                 last_epoch=-1,
-                 warmup_method: str = "linear",
-                 warmup_factor: float = 0.1,
-                 warmup_iters: int = 3):
-        super().__init__(optimizer, last_epoch=last_epoch)
-        self.end_epoch = end_epoch
-        self._last_lr = None
-        self.power = power
-        self.warmup_factor = warmup_factor
-        self.warmup_method = warmup_method
-        self.warmup_iters = warmup_iters
-
-    def get_lr(self):
-        if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.", UserWarning)
-
-        lr_group = []
-        for base_lr in self.optimizer.param_groups:
-            warmup_factor = _get_warmup_factor_at_iter(self.warmup_method,
-                                                       self.last_epoch,
-                                                       self.warmup_iters,
-                                                       self.warmup_factor)
-
-            lr_group.append(get_polynomial_lr(base_lr,
-                                              warmup_factor,
-                                              self.warmup_iters,
-                                              self.power,
-                                              self.last_epoch,
-                                              self.end_epoch))
-        return lr_group
-
-    def _compute_values(self) -> List[float]:
-        # The new interface
-        return self.get_lr()
+    last_lr = scheduler.get_last_lr()
+    for j, x in enumerate(optimizer.param_groups):
+        x["lr"] = np.interp(it,
+                            [0, warmup_iter],
+                            [warmup_bias_lr if j == 0 else 0.0, x["initial_lr"] * last_lr[j]])
+        if "momentum" in x:
+            x["momentum"] = np.interp(it, [0, warmup_iter], [warmup_momentum, momentum])

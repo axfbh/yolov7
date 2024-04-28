@@ -16,6 +16,7 @@ from ops.metric.DetectionMetric import fitness
 from utils.history_collect import History, AverageMeter
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
 from utils.logging import print_args, LOGGER
+from utils.lr_warmup import warmup_factor_at_iter
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -23,26 +24,7 @@ TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 
 # hyp: hyper parameter
 # opt: options
-def train(train_loader, val_loader, hyp, opt, names):
-    cfg = OmegaConf.load(Path(opt.cfg))
-
-    nb = opt.batch_size
-    nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / nb), 1)
-
-    device = opt.device
-    model = get_model(cfg)
-    model.to(device)
-
-    m = de_parallel(model).head  # number of detection layers (to scale hyp)
-    nl = m.nl
-    nc = m.num_classes
-    hyp["box"] *= 3 / nl  # scale to layers
-    hyp["cls"] *= nc / 80 * 3 / nl  # scale to classes and layers
-    hyp["obj"] *= (max(opt.image_size[0], opt.image_size[1]) / 640) ** 2 * 3 / nl  # scale to image size and layers
-    hyp["label_smoothing"] = opt.label_smoothing
-    model.hyp = hyp
-
+def train(model, train_loader, val_loader, device, hyp, opt, names):
     # -------- 梯度优化器 --------
     optimizer = smart_optimizer(model,
                                 opt.optimizer,
@@ -68,10 +50,7 @@ def train(train_loader, val_loader, hyp, opt, names):
     scheduler = smart_scheduler(optimizer,
                                 opt.scheduler,
                                 last_epoch,
-                                end_epoch=end_epoch,
-                                warmup_method=hyp.warmup_method,
-                                warmup_factor=hyp.warmup_factor,
-                                warmup_iters=hyp.warmup_iters)
+                                T_max=end_epoch)
 
     # -------- 每个 epoch 的 loss 记录工具 --------
     history = History(project_dir=Path(opt.project),
@@ -82,6 +61,12 @@ def train(train_loader, val_loader, hyp, opt, names):
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
     criterion = YoloLossV7(model)
+
+    # -------- Start training --------
+    nb = opt.batch_size
+    nbs = 64  # nominal batch size
+    accumulate = max(round(nbs / nb), 1)
+    warmup_iter = hyp["warmup_epochs"] * nb
 
     for epoch in range(start_epoch, end_epoch):
         model.train()
@@ -97,6 +82,17 @@ def train(train_loader, val_loader, hyp, opt, names):
 
         optimizer.zero_grad()
         for i, (images, targets, shape) in enumerate(stream):
+            it = i + nb * epoch  # number integrated batches (since train start)
+
+            warmup_factor_at_iter(optimizer,
+                                  scheduler,
+                                  it,
+                                  epoch=epoch,
+                                  momentum=hyp.momentum,
+                                  warmup_bias_lr=hyp.warmup_bias_lr,
+                                  warmup_iter=warmup_iter,
+                                  warmup_momentum=hyp.warmup_momentum)
+
             images = images.to(device) / 255.
 
             preds = model(images)
@@ -151,14 +147,20 @@ def parse_opt():
     parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
 
     # -------------- 参数值 --------------
-
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
-    parser.add_argument("--optimizer", type=str, choices=["SGD", "Adam", "AdamW"], default="SGD", help="optimizer")
-    parser.add_argument("--scheduler", type=str, choices=["Cosine", "MultiStep", "Polynomial"], default="Cosine",
+    parser.add_argument("--optimizer",
+                        type=str,
+                        choices=["SGD", "Adam", "AdamW"],
+                        default="SGD",
+                        help="optimizer")
+    parser.add_argument("--scheduler",
+                        type=str,
+                        choices=["Cosine", "MultiStep", "Polynomial", "OneCycleLR"],
+                        default="Cosine",
                         help="scheduler")
     parser.add_argument("--workers", type=int, default=3, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
@@ -170,17 +172,29 @@ def parse_opt():
     return parser.parse_args()
 
 
-def main():
-    opt = parse_opt()
-    print_args(vars(opt))
-
+def main(opt):
     hyp = OmegaConf.load(Path(opt.hyp))
+    cfg = OmegaConf.load(Path(opt.cfg))
 
     train_loader, val_loader, names = get_loader(hyp, opt)
 
-    train(train_loader, val_loader, hyp, opt, names)
+    device = opt.device
+    model = get_model(cfg)
+    model.to(device)
+
+    m = de_parallel(model).head  # detection head model
+    nl = m.nl  # number of detection layers (to scale hyp)
+    nc = m.num_classes
+    hyp["box"] *= 3 / nl  # scale to layers
+    hyp["cls"] *= nc / 80 * 3 / nl  # scale to classes and layers
+    hyp["obj"] *= (max(opt.image_size[0], opt.image_size[1]) / 640) ** 2 * 3 / nl  # scale to image size and layers
+    hyp["label_smoothing"] = opt.label_smoothing
+    model.hyp = hyp
+
+    train(model, train_loader, val_loader, device, hyp, opt, names)
 
 
 if __name__ == '__main__':
-    print('---------------')
-    main()
+    opt = parse_opt()
+    print_args(vars(opt))
+    main(opt)

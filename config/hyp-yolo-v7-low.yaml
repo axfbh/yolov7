@@ -9,9 +9,9 @@ momentum: 0.937
 weight_decay: 0.0005
 
 # ---------- 预热器 参数 ----------
-warmup_iters: 3
-warmup_factor: 0.1
-warmup_method: 'linear'
+warmup_epochs: 3
+warmup_momentum: 0.8  # warmup initial momentum
+warmup_bias_lr: 0.1  # warmup initial bias lr
 
 # ---------- 数据增强 参数 ----------
 translate: 0.1  # image translation (+/- fraction)
