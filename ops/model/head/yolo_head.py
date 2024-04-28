@@ -3,7 +3,7 @@ import torch.nn as nn
 from typing import List
 import torch
 import math
-from ops.detection.anchor_utils import make_grid
+from ops.detection.utils.utils import make_grid
 
 
 class YoloV7Head(nn.Module):

@@ -111,7 +111,7 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp2/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp/weights/best.pt",
                         help="model path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")

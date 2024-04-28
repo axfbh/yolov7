@@ -1,5 +1,5 @@
 import torch
-from ops.iou import bbox_iou, box_convert
+from ops.detection.utils.iou import bbox_iou, box_convert
 import torchvision
 
 torch.set_printoptions(precision=4, sci_mode=False)
