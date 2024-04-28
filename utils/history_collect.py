@@ -73,12 +73,13 @@ class History:
         self.save_id = 1
 
     @threaded
-    def save(self, model, ema, optimizer, epoch, fitness: float):
+    def save(self, model, ema, optimizer, epoch: int, last_iter: int, fitness: float):
         if self.best_fitness is None or fitness >= self.best_fitness:
             self.best_fitness = fitness
 
         save_dict = {
             'last_epoch': epoch,
+            'last_iter': last_iter,
             "best_fitness": fitness,
             'optimizer_name': optimizer.__class__.__name__,
             'optimizer': optimizer.state_dict(),

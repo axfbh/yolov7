@@ -16,7 +16,7 @@ from ops.metric.DetectionMetric import fitness
 from utils.history_collect import History, AverageMeter
 from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
 from utils.logging import print_args, LOGGER
-from utils.lr_warmup import warmup_factor_at_iter, WarmupLR
+from utils.lr_warmup import WarmupLR
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -25,9 +25,10 @@ TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 # hyp: hyper parameter
 # opt: options
 def train(model, train_loader, val_loader, device, hyp, opt, names):
-    nb = opt.batch_size
+    batch_size = opt.batch_size
     nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / nb), 1)
+    accumulate = max(round(nbs / batch_size), 1)
+    nb = len(train_loader)  # number of batches
     warmup_iter = hyp["warmup_epochs"] * nb
 
     # ---------- 梯度优化器 ----------
@@ -44,12 +45,12 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     ema = ModelEMA(model)
 
     # ---------- 模型权重加载器 ----------
-    last_epoch, best_fitness, start_epoch, end_epoch = smart_resume(model,
-                                                                    optimizer,
-                                                                    ema,
-                                                                    opt.epochs,
-                                                                    opt.resume,
-                                                                    Path(opt.weights))
+    best_fitness, last_iter, last_epoch, start_epoch, end_epoch = smart_resume(model,
+                                                                               optimizer,
+                                                                               ema,
+                                                                               opt.epochs,
+                                                                               opt.resume,
+                                                                               Path(opt.weights))
 
     # ---------- 学习率优化器 ----------
     scheduler = smart_scheduler(optimizer,
@@ -60,7 +61,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     # ---------- 学习率预热 ----------
     warmer = WarmupLR(optimizer,
                       scheduler,
-                      last_epoch=last_epoch,
+                      last_iter=last_iter,
                       epoch=end_epoch,
                       momentum=hyp.momentum,
                       warmup_bias_lr=hyp.warmup_bias_lr,
@@ -91,9 +92,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
         optimizer.zero_grad()
         for i, (images, targets, shape) in enumerate(stream):
-            it = i + nb * epoch  # number integrated batches (since train start)
-
-            warmer.step(it)
+            warmer.step()
 
             images = images.to(device) / 255.
 
@@ -137,13 +136,14 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
         fi = fitness(np.array(val_metric).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
 
-        history.save(model, ema, optimizer, epoch, fi)
+        history.save(model, ema, optimizer, epoch, warmer.last_iter, fi)
 
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
-    parser.add_argument("--weights", default='./logs/train/exp1/weights/last.pt', help="resume most recent training")
+    parser.add_argument("--weights", default='./logs/train/exp1/weights/last.pt',
+                        help="resume most recent training")
     parser.add_argument("--cfg", type=str, default="./models/yolov7l.yaml", help="model.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
     parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
@@ -168,8 +168,10 @@ def parse_opt():
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
     parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
-    parser.add_argument("--save-period", type=int, default=5, help="Save checkpoint every x epochs (disabled if < 1)")
-    parser.add_argument("--local_rank", type=int, default=-1, help="Automatic DDP Multi-GPU argument, do not modify")
+    parser.add_argument("--save-period", type=int, default=5,
+                        help="Save checkpoint every x epochs (disabled if < 1)")
+    parser.add_argument("--local_rank", type=int, default=-1,
+                        help="Automatic DDP Multi-GPU argument, do not modify")
 
     return parser.parse_args()
 
