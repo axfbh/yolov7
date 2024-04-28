@@ -86,7 +86,7 @@ def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1, **kwargs):
 
     args = {k: v for k, v in kwargs.items()}
     LOGGER.info(
-        f"{colorstr('scheduler:')} " + ", ".join(f"{k}={v}" for k, v in args.items()) + ")"
+        f"{colorstr('scheduler:')} {type(scheduler).__name__}(" + ", ".join(f"{k}={v}" for k, v in args.items()) + ")"
     )
     return scheduler
 
@@ -137,7 +137,7 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
             )
     else:
         LOGGER.warning(
-            f"{colorstr('Warning')} Cannot loaded the optimizer parameter, but it doesnt affect the model working."
+            f"{colorstr('Warning:')} Cannot loaded the optimizer parameter, but it doesnt affect the model working."
         )
 
     return best_fitness, last_iter, last_epoch, start_epoch, epochs

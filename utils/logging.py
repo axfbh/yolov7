@@ -6,7 +6,6 @@ import inspect
 from typing import Optional
 from pathlib import Path
 
-
 LOGGING_NAME = "cgm"
 
 
@@ -51,7 +50,13 @@ if platform.system() == "Windows":
 
 def colorstr(*input):
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
-    *args, string = input if len(input) > 1 else ("blue", "bold", input[0])  # color arguments, string
+    if input[0] == 'Warning:':
+        *args, string = ("red", "bold", input[0])
+    elif len(input) > 1:
+        *args, string = input
+    else:
+        *args, string = ("blue", "bold", input[0])  # color arguments, string
+
     colors = {
         "black": "\033[30m",  # basic colors
         "red": "\033[31m",
