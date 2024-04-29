@@ -37,6 +37,13 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+    def __iadd__(self, other):
+        self.val = other
+        self.sum += other
+        self.count += 1
+        self.avg = self.sum / self.count
+        return self
+
     def __repr__(self):
         return str(self.avg)
 

@@ -112,9 +112,9 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                 if ema:
                     ema.update(model)
 
-            lbox.update(loss_items[0].item())
-            lobj.update(loss_items[1].item())
-            lcls.update(loss_items[2].item())
+            lbox += loss_items[0].item()
+            lobj += loss_items[1].item()
+            lcls += loss_items[2].item()
 
             mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
             lr = optimizer.param_groups[0]['lr']
