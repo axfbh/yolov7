@@ -137,6 +137,8 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
         history.save(model, ema, optimizer, epoch, warmer.last_iter, fi)
 
+    torch.cuda.empty_cache()
+
 
 def parse_opt():
     parser = argparse.ArgumentParser()
