@@ -8,7 +8,6 @@ class WarmupLR:
                  optimizer,
                  scheduler,
                  last_iter: int,
-                 epoch: int,
                  momentum: float,
                  warmup_iter: int,
                  warmup_bias_lr: float,
@@ -19,7 +18,6 @@ class WarmupLR:
         self.momentum = momentum
         self.scheduler = scheduler
         self.optimizer = optimizer
-        self.epoch = epoch
         self.last_iter = last_iter
 
     def step(self):
