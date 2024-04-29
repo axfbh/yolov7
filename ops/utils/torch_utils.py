@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.nn.parameter import is_lazy
 from torchvision.ops.boxes import box_convert
 
-from utils.logging import LOGGER, colorstr
+from ops.utils.logging import LOGGER, colorstr
 
 
 @torch.no_grad()

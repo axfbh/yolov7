@@ -10,13 +10,13 @@ from torchvision.ops.boxes import box_convert
 from ops.metric.DetectionMetric import process_batch, ap_per_class
 
 from models.modeling import get_model
-from ops.detection.utils.nms import non_max_suppression
+from utils.nms import non_max_suppression
 from dataloader import get_loader
 
-from utils.logging import print_args, LOGGER
-from utils.history_collect import History
-from utils.plots import plot_images
-from utils.torch_utils import output_to_target
+from ops.utils.logging import print_args, LOGGER
+from ops.utils.history_collect import History
+from ops.utils.plots import plot_images
+from ops.utils.torch_utils import output_to_target
 
 S = ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "P", "R", "mAP50", "mAP50-95")
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
@@ -111,7 +111,7 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp3/weights/best.pt",
                         help="model path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")

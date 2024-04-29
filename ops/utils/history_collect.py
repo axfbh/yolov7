@@ -10,9 +10,9 @@ import cv2
 
 import torch
 
-from utils import threaded
-from utils.plots import Annotator
-from utils.torch_utils import de_parallel
+from ops.utils import threaded
+from ops.utils.plots import Annotator
+from ops.utils.torch_utils import de_parallel
 
 
 def yaml_save(file: Union[str, Path] = "data.yaml", data={}):

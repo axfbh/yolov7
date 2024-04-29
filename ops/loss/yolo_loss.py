@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 from abc import abstractmethod
-from ops.detection.utils.iou import bbox_iou, iou_loss
+from utils.iou import bbox_iou, iou_loss
 from ops.loss.basic_loss import BasicLoss
 from ops.metric.DetectionMetric import smooth_BCE
-from utils.torch_utils import de_parallel
+from ops.utils.torch_utils import de_parallel
 from math import ceil
 
 torch.set_printoptions(precision=4, sci_mode=False)

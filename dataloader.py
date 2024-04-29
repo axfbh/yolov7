@@ -14,7 +14,7 @@ from ops.dataset.voc_dataset import VOCDetection
 from ops.dataset.utils import detect_collate_fn
 import ops.cv.io as io
 from ops.transform.resize_maker import ResizeLongestPaddingShort
-from utils.logging import LOGGER, colorstr
+from ops.utils.logging import LOGGER, colorstr
 
 np.random.seed(0)
 

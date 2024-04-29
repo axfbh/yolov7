@@ -13,10 +13,10 @@ from dataloader import get_loader
 
 from ops.loss.yolo_loss import YoloLossV7
 from ops.metric.DetectionMetric import fitness
-from utils.history_collect import History, AverageMeter
-from utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
-from utils.logging import print_args, LOGGER
-from utils.lr_warmup import WarmupLR
+from ops.utils.history_collect import History, AverageMeter
+from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
+from ops.utils.logging import print_args, LOGGER
+from ops.utils.lr_warmup import WarmupLR
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
