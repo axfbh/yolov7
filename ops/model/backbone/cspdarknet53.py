@@ -6,13 +6,7 @@ from torchvision.ops.misc import Conv2dNormActivation
 
 BN = partial(nn.BatchNorm2d, eps=0.001, momentum=0.03)
 CBM = partial(Conv2dNormActivation, bias=False, inplace=True, norm_layer=BN, activation_layer=nn.Mish)
-
-
-class DownSampleLayer(nn.Sequential):
-    def __init__(self, in_ch, out_ch):
-        super(DownSampleLayer, self).__init__(
-            CBM(in_ch, out_ch, 3, 2)
-        )
+DownSampleLayer = partial(CBM, kernel_size=3, stride=2)
 
 
 class ResidualLayer(nn.Module):
@@ -64,23 +58,23 @@ class WrapLayer(nn.Module):
 
 
 class CSPDarkNet53(nn.Module):
-    def __init__(self, num_classes=100):
+    def __init__(self, base_channels, base_depth, num_classes=100):
         super(CSPDarkNet53, self).__init__()
 
         self.stem = nn.Sequential(
-            CBM(3, 32, 3),
-            DownSampleLayer(32, 64),
-            WrapLayer(64, 1, first=True),
+            CBM(3, base_channels, 3),
+            DownSampleLayer(base_channels, base_channels * 2),
+            WrapLayer(base_channels * 2, 1, first=True),
         )
 
         self.crossStagePartial1 = nn.Sequential(
-            DownSampleLayer(64, 128),
-            WrapLayer(128, 2),
+            DownSampleLayer(base_channels * 2, base_channels * 4),
+            WrapLayer(base_channels * 4, 2),
         )
 
         self.crossStagePartial2 = nn.Sequential(
-            DownSampleLayer(128, 256),
-            WrapLayer(256, 8),
+            DownSampleLayer(base_channels * 4, base_channels * 8),
+            WrapLayer(base_channels * 8, 8),
         )
 
         self.crossStagePartial3 = nn.Sequential(
