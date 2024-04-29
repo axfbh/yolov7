@@ -101,6 +101,7 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
         )
         start_epoch = last_epoch + 1
         return best_fitness, last_iter, last_epoch, start_epoch, epochs
+
     save_dict = torch.load(save_path, map_location='cpu')
 
     # ------------ resume model ------------
@@ -117,14 +118,14 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
         f"{colorstr('model loaded:')} Resuming training from {save_path} from epoch {start_epoch} to {epochs} total epochs"
     )
 
-    eam_param = save_dict.get('ema', None)
+    # ------------ resume ema ------------
+    ema_param = save_dict.get('ema', None)
 
-    if ema and eam_param is not None:
-        ema.ema.load_state_dict(eam_param.state_dict())  # EMA
+    if ema and ema_param is not None:
+        ema.ema.load_state_dict(ema_param.state_dict())  # EMA
         ema.updates = save_dict["updates"]
 
     # ------------ resume optimizer ------------
-
     optim_param = save_dict.get('optimizer', None)
     optim_name = save_dict.get('optimizer_name', None)
 
