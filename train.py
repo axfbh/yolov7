@@ -58,11 +58,10 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                                 last_epoch,
                                 T_max=end_epoch)
 
-    # ---------- 学习率预热 ----------
+    # ---------- 学习率预热器 ----------
     warmer = WarmupLR(optimizer,
                       scheduler,
                       last_iter=last_iter,
-                      epoch=end_epoch,
                       momentum=hyp['momentum'],
                       warmup_bias_lr=hyp['warmup_bias_lr'],
                       warmup_iter=warmup_iter,
@@ -104,7 +103,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
             scaler.scale(loss).backward()
 
             # ------------- 梯度累积 -------------
-            if (i + 1) % accumulate == 0 or (i + 1) == len(train_loader):
+            if (warmer.last_iter + 1) % accumulate == 0:
                 scaler.unscale_(optimizer)  # unscale gradients
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 scaler.step(optimizer)  # optimizer.step
@@ -150,7 +149,7 @@ def parse_opt():
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
+    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
