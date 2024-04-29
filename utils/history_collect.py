@@ -40,6 +40,9 @@ class AverageMeter(object):
     def __repr__(self):
         return str(self.avg)
 
+    def __float__(self):
+        return self.avg
+
 
 class History:
     def __init__(self, project_dir: Path, name: str, mode: str,

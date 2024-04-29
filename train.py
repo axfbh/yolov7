@@ -120,7 +120,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
             lr = optimizer.param_groups[0]['lr']
             stream.set_description(
                 ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
-                (epoch, mem, f"{shape[0]}x{shape[1]}", lbox.avg, lobj.avg, lcls.avg, lr)
+                (epoch, mem, f"{shape[0]}x{shape[1]}", lbox, lobj, lcls, lr)
             )
 
         val_metric = validate.run(val_loader=val_loader,
