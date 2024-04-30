@@ -81,8 +81,13 @@ class FCOSHead(nn.Module):
             )
 
     def forward(self, x):
-        for i in range(self.na):
-        cls_logits = self.classification_head(x)
-        bbox_regression, bbox_ctrness = self.regression_head(x)
+        for i in range(self.nl):
+            classification_head = self.head[i][0]
+            regression_head = self.head[i][1]
+            cls_logits = classification_head(x)
+            bbox_regression, bbox_ctrness = regression_head(x)
+            bs, _, ny, nx = x[i].shape
+            x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).permute([0, 2, 3, 1]).contiguous()
+            if not self.training:  # inference
 
         return bbox_regression, bbox_ctrness, cls_logits
