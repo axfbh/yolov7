@@ -65,7 +65,8 @@ def smart_optimizer(model, name: str = "Adam", lr=0.001, momentum=0.9, decay=1e-
 
 def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1, **kwargs):
     if name == "Cosine":
-        # T_max:end_epoch
+        # T_max: 整个训练过程中的cosine循环次数
+        # eta_min: 最小学习率，默认为0
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
                                                                last_epoch=last_epoch,
                                                                **kwargs)
