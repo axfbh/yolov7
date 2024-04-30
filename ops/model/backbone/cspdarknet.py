@@ -25,18 +25,18 @@ class ResidualLayer(nn.Module):
 class WrapLayer(nn.Module):
     def __init__(self, c1, c2, count=1, shortcut=True, first=False):
         super(WrapLayer, self).__init__()
-        c_ = c1 if first else c2 // 2
+        c_ = c1 if first else c1 // 2
         self.trans_0 = CBM(c1, c_, 1)
 
         self.trans_1 = CBM(c1, c_, 1)
 
         self.make_layers = nn.ModuleList()
         for _ in range(count):
-            self.make_layers.append(ResidualLayer(c_, c1 // 2, shortcut))
+            self.make_layers.append(ResidualLayer(c_, c_, shortcut))
 
         self.conv1 = CBM(c_, c_, 1)
 
-        self.trans_cat = CBM(c_ * 2 if first else c_, c2, 1)
+        self.trans_cat = CBM(c1 * 2 if first else c1, c2, 1)
 
     def forward(self, x):
         # ----------- 两分支 -----------

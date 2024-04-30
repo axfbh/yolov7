@@ -261,7 +261,7 @@ class YoloLossV5(YoloLoss):
                                  [1, 0],
                                  [0, 1],
                                  [-1, 0],
-                                 [0, -1]], device=self.device, dtype=torch.float32).mul(self.g).chunk(2, 1)
+                                 [0, -1]], device=self.device, dtype=torch.float32).mul(0.5).chunk(2, 1)
 
             identity = torch.zeros_like(x)
 
@@ -399,7 +399,7 @@ class YoloLossV7(YoloLoss):
                                  [-1, 0],
                                  [-1, -1],
                                  [-1, 1],
-                                 [0, -1]], device=self.device, dtype=torch.float32).mul(self.g).chunk(2, 1)
+                                 [0, -1]], device=self.device, dtype=torch.float32).mul(1.0).chunk(2, 1)
 
             identity = torch.zeros_like(x)
 
