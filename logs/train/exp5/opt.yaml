@@ -1,0 +1,19 @@
+weights: ./logs/train/exp1/weights/last.pt
+cfg: ./models/yolov7l.yaml
+data: ./data/voc.yaml
+hyp: ./config/hyp-yolo-v4-low.yaml
+epochs: 300
+batch_size: 4
+image_size:
+- 416
+- 416
+resume: true
+device: cuda
+optimizer: SGD
+scheduler: Cosine
+workers: 3
+project: ./logs
+name: exp
+label_smoothing: 0.0
+save_period: 5
+local_rank: -1

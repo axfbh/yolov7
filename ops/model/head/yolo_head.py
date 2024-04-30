@@ -47,7 +47,7 @@ class YoloV7Head(nn.Module):
                 anchor_grid = self.anchors[i].view((1, self.na, 1, 1, 2)).expand(shape)
 
                 xy, wh, conf = x[i].sigmoid().split((2, 2, self.num_classes + 1), -1)
-                xy = (xy * 2 - 0.5 + grid) * stride  # xy
+                xy = (xy * 3 - 1 + grid) * stride  # xy
                 wh = (wh * 2) ** 2 * anchor_grid  # wh
                 y = torch.cat((xy, wh, conf), 4)
 

@@ -26,4 +26,3 @@ obj_pw: 1.0
 box: 0.05  # box loss gain
 cls: 0.5  # cls loss gain
 obj: 1.0  # obj loss gain (scale with pixels)
-g: 0.5
