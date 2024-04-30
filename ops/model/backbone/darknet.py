@@ -125,10 +125,3 @@ class DarkNet(nn.Module):
         x = self.fc(x)
 
         return x
-
-
-def darknet53(num_classes) -> DarkNet53:
-    """ Constructs a ResNet-50 model.
-    """
-
-    return DarkNet53(num_classes)

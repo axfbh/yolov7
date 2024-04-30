@@ -15,7 +15,7 @@ class ResidualLayer(nn.Module):
         self.shortcut = shortcut
         self.conv = nn.Sequential(
             CBM(in_ch, out_ch, 1),
-            CBM(in_ch, out_ch, 3),
+            CBM(out_ch, in_ch, 3),
         )
 
     def forward(self, x):
@@ -23,20 +23,20 @@ class ResidualLayer(nn.Module):
 
 
 class WrapLayer(nn.Module):
-    def __init__(self, in_ch, count=1, shortcut=True, first=False):
+    def __init__(self, c1, c2, count=1, shortcut=True, first=False):
         super(WrapLayer, self).__init__()
-        out_ch = in_ch if first else in_ch // 2
-        self.trans_0 = CBM(in_ch, out_ch, 1)
+        c_ = c1 if first else c2 // 2
+        self.trans_0 = CBM(c1, c_, 1)
 
-        self.trans_1 = CBM(in_ch, out_ch, 1)
-
-        self.trans_cat = CBM(in_ch * 2 if first else in_ch, in_ch, 1)
+        self.trans_1 = CBM(c1, c_, 1)
 
         self.make_layers = nn.ModuleList()
         for _ in range(count):
-            self.make_layers.append(ResidualLayer(out_ch, in_ch // 2, shortcut))
+            self.make_layers.append(ResidualLayer(c_, c1 // 2, shortcut))
 
-        self.conv1 = CBM(out_ch, out_ch, 1)
+        self.conv1 = CBM(c_, c_, 1)
+
+        self.trans_cat = CBM(c1 * 2 if first else c1, c2, 1)
 
     def forward(self, x):
         # ----------- 两分支 -----------
@@ -61,27 +61,27 @@ class CSPDarknetV1(nn.Module):
         self.stem = nn.Sequential(
             CBM(3, base_channels, 3),
             DownSampleLayer(base_channels, base_channels * 2),
-            WrapLayer(base_channels * 2, base_depth * 1, first=True),
+            WrapLayer(base_channels * 2, base_channels * 2, base_depth * 1, first=True),
         )
 
         self.crossStagePartial1 = nn.Sequential(
             DownSampleLayer(base_channels * 2, base_channels * 4),
-            WrapLayer(base_channels * 4, base_depth * 2),
+            WrapLayer(base_channels * 4, base_channels * 4, base_depth * 2),
         )
 
         self.crossStagePartial2 = nn.Sequential(
             DownSampleLayer(base_channels * 4, base_channels * 8),
-            WrapLayer(base_channels * 8, base_depth * 8),
+            WrapLayer(base_channels * 8, base_channels * 8, base_depth * 8),
         )
 
         self.crossStagePartial3 = nn.Sequential(
             DownSampleLayer(base_channels * 8, base_channels * 16),
-            WrapLayer(base_channels * 16, base_depth * 8),
+            WrapLayer(base_channels * 16, base_channels * 16, base_depth * 8),
         )
 
         self.crossStagePartial4 = nn.Sequential(
             DownSampleLayer(base_channels * 16, base_channels * 32),
-            WrapLayer(base_channels * 32, base_depth * 4),
+            WrapLayer(base_channels * 32, base_channels * 32, base_depth * 4),
         )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
