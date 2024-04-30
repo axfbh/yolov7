@@ -6,5 +6,5 @@ from ops.model.detection.fcos import FCOS
 
 
 def get_model(cfg):
-    # return YoloV4(anchors=cfg.anchors, num_classes=cfg.nc, phi='m')
-    return FCOS(num_classes=cfg.nc)
+    return YoloV4(anchors=cfg.anchors, num_classes=cfg.nc, phi='m')
+    # return FCOS(num_classes=cfg.nc)
