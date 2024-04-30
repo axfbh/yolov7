@@ -1,7 +1,7 @@
 import torch
 from typing import List
 import torch.nn as nn
-from ops.detection.utils.utils import make_grid
+from utils import make_grid
 
 
 class AnchorGenerator(nn.Module):
