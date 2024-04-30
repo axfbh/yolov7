@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from typing import List
 
+
 class FCOSRegressionHead(nn.Module):
     def __init__(self, in_channels):
         super(FCOSRegressionHead, self).__init__()
@@ -70,12 +71,17 @@ class FCOSClassificationHead(nn.Module):
 
 
 class FCOSHead(nn.Module):
-    def __init__(self, in_channels_list:List, num_classes):
+    def __init__(self, in_channels_list: List, num_classes):
         super(FCOSHead, self).__init__()
-        self.classification_head = FCOSClassificationHead(in_channels, num_classes)
-        self.regression_head = FCOSRegressionHead(in_channels)
+        self.nl = len(in_channels_list)
+        self.head = nn.ModuleList()
+        for in_channels in in_channels_list:
+            self.head.append(
+                nn.ModuleList([FCOSClassificationHead(in_channels, num_classes), FCOSRegressionHead(in_channels)])
+            )
 
     def forward(self, x):
+        for i in range(self.na):
         cls_logits = self.classification_head(x)
         bbox_regression, bbox_ctrness = self.regression_head(x)
 

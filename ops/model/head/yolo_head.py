@@ -34,7 +34,7 @@ class YoloV7Head(nn.Module):
         z = []  # inference output
         device = self.anchors.device
         imgsze = torch.tensor([W, H], device=device)
-        for i in range(self.na):
+        for i in range(self.nl):
             x[i] = self.head[i](x[i])
             bs, _, ny, nx = x[i].shape  # x(bs,75,20,20) to x(bs,3,20,20,25)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
@@ -84,7 +84,7 @@ class YoloV5Head(nn.Module):
         z = []  # inference output
         device = self.anchors.device
         imgsze = torch.tensor([W, H], device=device)
-        for i in range(self.na):
+        for i in range(self.nl):
             x[i] = self.head[i](x[i])
             bs, _, ny, nx = x[i].shape  # x(bs,75,20,20) to x(bs,3,20,20,25)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
@@ -134,7 +134,7 @@ class YoloV4Head(nn.Module):
         z = []  # inference output
         device = self.anchors.device
         imgsze = torch.tensor([W, H], device=device)
-        for i in range(self.na):
+        for i in range(self.nl):
             x[i] = self.head[i](x[i])
             bs, _, ny, nx = x[i].shape  # x(bs,75,20,20) to x(bs,3,20,20,25)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
