@@ -51,9 +51,9 @@ class MP1(nn.Module):
         return torch.cat([x1, x2], dim=1)
 
 
-class ElanDarkNet53(nn.Module):
+class ElanDarkNet(nn.Module):
     def __init__(self, transition_channels, block_channels, n, phi, num_classes=1000):
-        super(ElanDarkNet53, self).__init__()
+        super(ElanDarkNet, self).__init__()
 
         ids = {
             'l': [-1, -3, -5, -6],

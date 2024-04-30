@@ -72,9 +72,9 @@ class UpSampleLayer(nn.Module):
         return F.interpolate(x, scale_factor=2, mode='nearest')
 
 
-class DarkNet53(nn.Module):
+class DarkNet(nn.Module):
     def __init__(self, num_classes=1000):
-        super(DarkNet53, self).__init__()
+        super(DarkNet, self).__init__()
 
         # ----- DarkNet53 ------------
         self.stem = nn.Sequential(

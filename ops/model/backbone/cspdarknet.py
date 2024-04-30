@@ -57,34 +57,34 @@ class WrapLayer(nn.Module):
         return out
 
 
-class CSPDarkNet53(nn.Module):
+class CSPDarknetV1(nn.Module):
     def __init__(self, base_channels, base_depth, num_classes=100):
-        super(CSPDarkNet53, self).__init__()
+        super(CSPDarknetV1, self).__init__()
 
         self.stem = nn.Sequential(
             CBM(3, base_channels, 3),
             DownSampleLayer(base_channels, base_channels * 2),
-            WrapLayer(base_channels * 2, 1, first=True),
+            WrapLayer(base_channels * 2, base_depth * 1, first=True),
         )
 
         self.crossStagePartial1 = nn.Sequential(
             DownSampleLayer(base_channels * 2, base_channels * 4),
-            WrapLayer(base_channels * 4, 2),
+            WrapLayer(base_channels * 4, base_depth * 2),
         )
 
         self.crossStagePartial2 = nn.Sequential(
             DownSampleLayer(base_channels * 4, base_channels * 8),
-            WrapLayer(base_channels * 8, 8),
+            WrapLayer(base_channels * 8, base_depth * 8),
         )
 
         self.crossStagePartial3 = nn.Sequential(
-            DownSampleLayer(256, 512),
-            WrapLayer(512, 8),
+            DownSampleLayer(base_channels * 8, base_channels * 16),
+            WrapLayer(base_channels * 16, base_depth * 8),
         )
 
         self.crossStagePartial4 = nn.Sequential(
-            DownSampleLayer(512, 1024),
-            WrapLayer(1024, 4),
+            DownSampleLayer(base_channels * 16, base_channels * 32),
+            WrapLayer(base_channels * 32, base_depth * 4),
         )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -112,10 +112,3 @@ class CSPDarkNet53(nn.Module):
         x = self.fc(x)
 
         return x
-
-
-def cspdarknet53(num_classes) -> CSPDarkNet53:
-    """ Constructs a ResNet-50 model.
-    """
-
-    return CSPDarkNet53(num_classes)

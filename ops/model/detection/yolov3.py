@@ -3,7 +3,7 @@ from torch import nn
 from ops.model.neck.panet import PanNetTopDown
 from ops.model.head.yolo_head import YoloHead
 from ops.model.backbone.utils import _darknet_extractor
-from ops.model.backbone.darknet53 import DarkNet53
+from ops.model.backbone.darknet import DarkNet
 
 
 class ConvolutionalLayer(nn.Sequential):
@@ -36,7 +36,7 @@ class YoloV3(nn.Module):
     def __init__(self, num_classes):
         super(YoloV3, self).__init__()
 
-        self.backbone = _darknet_extractor(DarkNet53(), 5)
+        self.backbone = _darknet_extractor(DarkNet(), 5)
 
         self.neck = PanNetTopDown([256, 128], YVBlock, use_cat=True)
 

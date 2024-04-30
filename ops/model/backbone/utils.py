@@ -1,14 +1,14 @@
 import torch
-from ops.model.backbone import cspdarknet53
-from ops.model.backbone import darknet53
-from ops.model.backbone import elandarknet53
+from ops.model.backbone import cspdarknet
+from ops.model.backbone import darknet
+from ops.model.backbone import elandarknet
 from typing import Optional, List, Callable
 import torch.nn as nn
 from torchvision.models._utils import IntermediateLayerGetter
 
 
 def _cspdarknet_extractor(
-        backbone: cspdarknet53.CSPDarkNet53,
+        backbone: cspdarknet.CSPDarknetV1,
         trainable_layers: int,
         returned_layers: Optional[List[int]] = None):
     # select layers that won't be frozen
@@ -34,7 +34,7 @@ def _cspdarknet_extractor(
 
 
 def _darknet_extractor(
-        backbone: darknet53.DarkNet53,
+        backbone: darknet.DarkNet,
         trainable_layers: int,
         returned_layers: Optional[List[int]] = None):
     # select layers that won't be frozen
@@ -60,7 +60,7 @@ def _darknet_extractor(
 
 
 def _elandarknet_extractor(
-        backbone: elandarknet53.ElanDarkNet53,
+        backbone: elandarknet.ElanDarkNet,
         trainable_layers: int,
         returned_layers: Optional[List[int]] = None):
     # select layers that won't be frozen

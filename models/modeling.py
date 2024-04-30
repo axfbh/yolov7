@@ -3,7 +3,7 @@ import torch
 from ops.model.neck.spp import SPPCSPC
 from ops.model.head.yolo_head import YoloV7Head
 from ops.model.misc.rep_conv import RepConv2d
-from ops.model.backbone.elandarknet53 import ElanDarkNet53, CBS, MP1, Elan
+from ops.model.backbone.elandarknet import ElanDarkNet, CBS, MP1, Elan
 from ops.model.backbone.utils import _elandarknet_extractor
 from typing import List
 
@@ -18,7 +18,7 @@ class YoloV7(nn.Module):
         n = {'l': 4, 'x': 6}[phi]
         ids = {'l': [-1, -2, -3, -4, -5, -6], 'x': [-1, -3, -5, -7, -8]}[phi]
 
-        self.backbone = _elandarknet_extractor(ElanDarkNet53(transition_channels, block_channels, n, phi), 5)
+        self.backbone = _elandarknet_extractor(ElanDarkNet(transition_channels, block_channels, n, phi), 5)
 
         self.sppcspc = SPPCSPC(transition_channels * 32, transition_channels * 16,
                                conv_layer=CBS,
