@@ -10,9 +10,9 @@ from ops.utils.torch_utils import de_parallel
 torch.set_printoptions(precision=4, sci_mode=False)
 
 
-class Fcosloss(BasicLoss):
+class FcosLoss(BasicLoss):
     def __init__(self, model):
-        super(Fcosloss, self).__init__(model)
+        super(FcosLoss, self).__init__(model)
 
         m = de_parallel(model).head
         self.nl = m.nl

@@ -36,7 +36,7 @@ class WrapLayer(nn.Module):
 
         self.conv1 = CBM(c_, c_, 1)
 
-        self.trans_cat = CBM(c1 * 2 if first else c1, c2, 1)
+        self.trans_cat = CBM(c_ * 2 if first else c_, c2, 1)
 
     def forward(self, x):
         # ----------- 两分支 -----------
@@ -158,7 +158,7 @@ class CSPDarknetV2(nn.Module):
         #   完成CSPlayer之后，40, 40, 512 -> 40, 40, 512
         # -----------------------------------------------#
         self.crossStagePartial3 = nn.Sequential(
-            DownSampleLayer(base_channels * 4, base_channels * 8, 3, 2),
+            DownSampleLayer(base_channels * 4, base_channels * 8),
             WrapLayer(base_channels * 8, base_channels * 8, base_depth * 3),
         )
         # -----------------------------------------------#
@@ -167,7 +167,7 @@ class CSPDarknetV2(nn.Module):
         #   完成CSPlayer之后，20, 20, 1024 -> 20, 20, 1024
         # -----------------------------------------------#
         self.crossStagePartial4 = nn.Sequential(
-            DownSampleLayer(base_channels * 8, base_channels * 16, 3, 2),
+            DownSampleLayer(base_channels * 8, base_channels * 16),
             CBM(base_channels * 16, base_channels * 8, 1),
             SPP([5, 9, 3]),
             CBM(base_channels * 8 * 4, base_channels * 16, 1),
