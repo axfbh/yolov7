@@ -4,9 +4,9 @@
 # See tutorials for hyperparameter evolution https://github.com/ultralytics/yolov5#tutorials
 
 # ---------- 优化器 参数 ----------
-lr: 0.01
+lr: 0.0001
 momentum: 0.937
-weight_decay: 0.0005
+weight_decay: 0.000484
 
 # ---------- 预热器 参数 ----------
 warmup_epochs: 3
@@ -15,7 +15,7 @@ warmup_bias_lr: 0.1  # warmup initial bias lr
 
 # ---------- 数据增强 参数 ----------
 translate: 0.1  # image translation (+/- fraction)
-scale: 0.5  # image scale (+/- gain)
+scale: 0.1  # image scale (+/- gain)
 flipud: 0.0  # image flip up-down (probability)
 fliplr: 0.5  # image flip left-right (probability)
 
@@ -23,6 +23,6 @@ fliplr: 0.5  # image flip left-right (probability)
 anchor_t: 0.2
 cls_pw: 1.0
 obj_pw: 1.0
-box: 0.05  # box loss gain
-cls: 0.5  # cls loss gain
-obj: 1.0  # obj loss gain (scale with pixels)
+box: 3.54  # box loss gain
+cls: 37.4  # cls loss gain
+obj: 64.3  # obj loss gain (scale with pixels)
