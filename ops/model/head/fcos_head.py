@@ -81,6 +81,8 @@ class FCOSHead(nn.Module):
             )
 
     def forward(self, x):
+        z = []
+
         for i in range(self.nl):
             classification_head = self.head[i][0]
             regression_head = self.head[i][1]
@@ -91,4 +93,4 @@ class FCOSHead(nn.Module):
             if not self.training:  # inference
                 pass
 
-        return x if self.training else None
+        return x if self.training else (torch.cat(z, 1), x)
