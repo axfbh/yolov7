@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import math
-
+from typing import List
 
 class FCOSRegressionHead(nn.Module):
     def __init__(self, in_channels):
@@ -70,7 +70,7 @@ class FCOSClassificationHead(nn.Module):
 
 
 class FCOSHead(nn.Module):
-    def __init__(self, in_channels, num_classes):
+    def __init__(self, in_channels_list:List, num_classes):
         super(FCOSHead, self).__init__()
         self.classification_head = FCOSClassificationHead(in_channels, num_classes)
         self.regression_head = FCOSRegressionHead(in_channels)

@@ -7,15 +7,15 @@ from utils.utils import make_grid
 
 
 class YoloV7Head(nn.Module):
-    def __init__(self, out_channle_list: List, anchors: List, num_classes: int):
+    def __init__(self, in_channels_list: List, anchors: List, num_classes: int):
         super(YoloV7Head, self).__init__()
         self.nl = len(anchors)
         self.na = len(anchors[0]) // 2
         self.num_classes = num_classes
         self.no = num_classes + 5
-        self.head = nn.ModuleList([nn.Conv2d(out_channle_list[0], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[1], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[2], self.na * self.no, 1, 1, 0)])
+        self.head = nn.ModuleList()
+        for in_channels in in_channels_list:
+            self.head.append(nn.Conv2d(in_channels, self.na * self.no, 1, 1, 0))
 
         self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
 
@@ -57,15 +57,15 @@ class YoloV7Head(nn.Module):
 
 
 class YoloV5Head(nn.Module):
-    def __init__(self, out_channle_list: List, anchors: List, num_classes: int):
+    def __init__(self, in_channels_list: List, anchors: List, num_classes: int):
         super(YoloV5Head, self).__init__()
         self.nl = len(anchors)
         self.na = len(anchors[0]) // 2
         self.num_classes = num_classes
         self.no = num_classes + 5
-        self.head = nn.ModuleList([nn.Conv2d(out_channle_list[0], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[1], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[2], self.na * self.no, 1, 1, 0)])
+        self.head = nn.ModuleList()
+        for in_channels in in_channels_list:
+            self.head.append(nn.Conv2d(in_channels, self.na * self.no, 1, 1, 0))
 
         self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
 
@@ -107,15 +107,15 @@ class YoloV5Head(nn.Module):
 
 
 class YoloV4Head(nn.Module):
-    def __init__(self, out_channle_list: List, anchors: List, num_classes: int):
+    def __init__(self, in_channels_list: List, anchors: List, num_classes: int):
         super(YoloV4Head, self).__init__()
         self.nl = len(anchors)
         self.na = len(anchors[0]) // 2
         self.num_classes = num_classes
         self.no = num_classes + 5
-        self.head = nn.ModuleList([nn.Conv2d(out_channle_list[0], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[1], self.na * self.no, 1, 1, 0),
-                                   nn.Conv2d(out_channle_list[2], self.na * self.no, 1, 1, 0)])
+        self.head = nn.ModuleList()
+        for in_channels in in_channels_list:
+            self.head.append(nn.Conv2d(in_channels, self.na * self.no, 1, 1, 0))
 
         self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
 

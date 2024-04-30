@@ -5,7 +5,6 @@ from utils.iou import bbox_iou, iou_loss
 from ops.loss.basic_loss import BasicLoss
 from ops.metric.DetectionMetric import smooth_BCE
 from ops.utils.torch_utils import de_parallel
-from math import ceil
 
 torch.set_printoptions(precision=4, sci_mode=False)
 
