@@ -11,7 +11,7 @@ import numpy as np
 from models.modeling import get_model
 from dataloader import get_loader
 
-from ops.loss.yolo_loss import YoloLossV7
+from ops.loss.yolo_loss import YoloLossV7, YoloLossV4
 from ops.metric.DetectionMetric import fitness
 from ops.utils.history_collect import History, AverageMeter
 from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
@@ -75,7 +75,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       best_fitness=best_fitness,
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
-    criterion = YoloLossV7(model)
+    criterion = YoloLossV4(model)
 
     for epoch in range(start_epoch, end_epoch):
         model.train()
@@ -152,7 +152,7 @@ def parse_opt():
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
-    parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
+    parser.add_argument("--image-size", type=list, default=[416, 416], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--optimizer",

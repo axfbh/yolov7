@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from ops.model.backbone.cspdarknet import CSPDarknetV2, CBM, WrapLayer
 from ops.model.backbone.utils import _cspdarknet_extractor
+from ops.model.head.yolo_head import YoloV5Head
 
 
 class YoloV5(nn.Module):
@@ -43,27 +44,9 @@ class YoloV5(nn.Module):
         self.down_sample2 = CBM(base_channels * 8, base_channels * 8, 3, 2)
         self.conv3_for_downsample2 = WrapLayer(base_channels * 16, base_channels * 16, base_depth, shortcut=False)
 
-        self.yolo_head_P3 = nn.Conv2d(base_channels * 4, anchors * (5 + num_classes), 1)
-        self.yolo_head_P4 = nn.Conv2d(base_channels * 8, anchors * (5 + num_classes), 1)
-        self.yolo_head_P5 = nn.Conv2d(base_channels * 16, anchors * (5 + num_classes), 1)
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        b = self.yolo_head_P3.bias.view(self.num_anchors, -1)
-        b.data[:, 4] += math.log(8 / (640 / 8) ** 2)
-        b.data[:, 5:self.num_classes] += math.log(0.6 / (self.num_classes - 0.99999))
-        self.yolo_head_P3.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
-
-        b = self.yolo_head_P4.bias.view(self.num_anchors, -1)
-        b.data[:, 4] += math.log(8 / (640 / 16) ** 2)
-        b.data[:, 5:self.num_classes] += math.log(0.6 / (self.num_classes - 0.99999))
-        self.yolo_head_P3.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
-
-        b = self.yolo_head_P5.bias.view(self.num_anchors, -1)
-        b.data[:, 4] += math.log(8 / (640 / 32) ** 2)
-        b.data[:, 5:self.num_classes] += math.log(0.6 / (self.num_classes - 0.99999))
-        self.yolo_head_P3.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+        self.head = YoloV5Head([base_channels * 4, base_channels * 8, base_channels * 16],
+                               anchors,
+                               num_classes)
 
     def forward(self, x):
         #  backbone
