@@ -37,5 +37,5 @@ class FCOS(nn.Module):
         return self.head([p3, p4, p5, p6, p7])
 
 
-def get_model(args):
-    return FCOS(args.num_classes)
+def get_model(num_classes):
+    return FCOS(num_classes)
