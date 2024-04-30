@@ -10,7 +10,7 @@ weight_decay: 0.000484
 
 # ---------- 预热器 参数 ----------
 warmup_epochs: 3
-warmup_momentum: 0.8  # warmup initial momentum
+warmup_momentum: 0.9  # warmup initial momentum
 warmup_bias_lr: 0.1  # warmup initial bias lr
 
 # ---------- 数据增强 参数 ----------
