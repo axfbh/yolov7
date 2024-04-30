@@ -1,10 +1,10 @@
 import torch.nn as nn
 import torch
 from abc import abstractmethod
-from ops.detection.utils import make_grid
-from ops.detection.nms import non_max_suppression
+from utils import make_grid
+from nms import non_max_suppression
 from typing import Sequence
-from ops.iou import box_convert
+from iou import box_convert
 from math import ceil
 
 
