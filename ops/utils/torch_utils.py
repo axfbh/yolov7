@@ -79,6 +79,9 @@ def smart_scheduler(optimizer, name: str = "Cosine", last_epoch=1, **kwargs):
                                                           last_epoch=last_epoch,
                                                           **kwargs)
     elif name == "OneCycleLR":
+        # max_lr (float or list) – Upper learning rate boundaries in the cycle for each parameter group.
+        # anneal_strategy (str) – {‘cos’, ‘linear’} Specifies the annealing strategy: “cos” for cosine annealing,
+        # “linear” for linear annealing. Default: ‘cos’
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                         last_epoch=last_epoch,
                                                         **kwargs)
