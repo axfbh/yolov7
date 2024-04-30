@@ -143,7 +143,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
-    parser.add_argument("--weights", default='./logs/train/exp1/weights/last.pt',
+    parser.add_argument("--weights", default='./logs/train/exp5/weights/last.pt',
                         help="resume most recent training")
     parser.add_argument("--cfg", type=str, default="./models/yolov7l.yaml", help="model.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")

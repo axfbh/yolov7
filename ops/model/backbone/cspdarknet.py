@@ -142,7 +142,7 @@ class CSPDarknetV2(nn.Module):
         # -----------------------------------------------#
         self.crossStagePartial1 = nn.Sequential(
             DownSampleLayer(base_channels, base_channels * 2),
-            WrapLayer(base_channels * 2, base_depth),
+            WrapLayer(base_channels * 2, base_channels * 2, base_depth),
         )
         # -----------------------------------------------#
         #   完成卷积之后，160, 160, 128 -> 80, 80, 256
@@ -150,7 +150,7 @@ class CSPDarknetV2(nn.Module):
         # -----------------------------------------------#
         self.crossStagePartial2 = nn.Sequential(
             DownSampleLayer(base_channels * 2, base_channels * 4),
-            WrapLayer(base_channels * 4, base_depth * 3),
+            WrapLayer(base_channels * 4, base_channels * 4, base_depth * 3),
         )
 
         # -----------------------------------------------#
@@ -159,7 +159,7 @@ class CSPDarknetV2(nn.Module):
         # -----------------------------------------------#
         self.crossStagePartial3 = nn.Sequential(
             DownSampleLayer(base_channels * 4, base_channels * 8, 3, 2),
-            WrapLayer(base_channels * 8, base_depth * 3),
+            WrapLayer(base_channels * 8, base_channels * 8, base_depth * 3),
         )
         # -----------------------------------------------#
         #   完成卷积之后，40, 40, 512 -> 20, 20, 1024
@@ -171,7 +171,7 @@ class CSPDarknetV2(nn.Module):
             CBM(base_channels * 16, base_channels * 8, 1),
             SPP([5, 9, 3]),
             CBM(base_channels * 8 * 4, base_channels * 16, 1),
-            WrapLayer(base_channels * 16, base_depth, shortcut=False),
+            WrapLayer(base_channels * 16, base_channels * 16, base_depth, shortcut=False),
         )
 
         self.reset_parameters()
