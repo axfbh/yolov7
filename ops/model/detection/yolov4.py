@@ -103,9 +103,7 @@ class YoloV4(nn.Module):
         P5 = torch.cat([P4_downsample, P5], dim=1)
         P5 = self.make_five_conv4(P5)
 
-        head = self.head([P3, P4, P5], H, W)
-
-        return head
+        return self.head([P3, P4, P5], H, W)
 
 
 def get_model(cfg):

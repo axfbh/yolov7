@@ -84,6 +84,5 @@ class YoloV5(nn.Module):
         #   第一个特征层
         #   P5=(batch_size,75,20,20)
         # ---------------------------------------------------#
-        head = self.head([P3, P4, P5], H, W)
 
-        return head
+        return self.head([P3, P4, P5], H, W)
