@@ -49,8 +49,10 @@ class YoloV5(nn.Module):
                                num_classes)
 
     def forward(self, x):
-        #  backbone
-        feat1, feat2, feat3 = self.backbone(x)
+        _, _, H, W = x.size()
+        x = self.backbone(x)
+
+        feat1, feat2, feat3 = x['0'], x['1'], x['2']
 
         P5 = self.conv_for_feat3(feat3)
         P5_upsample = self.upsample(P5)
