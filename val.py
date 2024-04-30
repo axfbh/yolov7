@@ -32,6 +32,7 @@ def run(val_loader,
         iou_thres=0.6,  # NMS IoU threshold
         max_det=300,  # maximum detections per image
         plots=True,
+        single_cls=False,
         criterion=None):
     model.eval()
 
@@ -44,7 +45,6 @@ def run(val_loader,
 
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
-    single_cls = False
 
     for batch_i, (images, targets, shape) in enumerate(stream):
         images = images.to(device, non_blocking=True) / 255.
@@ -119,6 +119,7 @@ def parse_opt():
     parser.add_argument("--iou-thres", type=float, default=0.6, help="NMS IoU threshold")
     parser.add_argument("--max-det", type=int, default=300, help="maximum detections per image")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    parser.add_argument("--single-cls", action="store_true", help="treat as single-class dataset")
     parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
@@ -148,6 +149,7 @@ def main():
     run(val_loader, names, model, history, device,
         conf_thres=opt.conf_thres,
         iou_thres=opt.iou_thres,
+        single_cls=opt.single_cls,
         plots=True)
 
 

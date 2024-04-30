@@ -129,6 +129,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                                   history=history,
                                   device=device,
                                   plots=False,
+                                  single_cls=opt.single_cls,
                                   criterion=criterion)
 
         scheduler.step()
@@ -154,6 +155,7 @@ def parse_opt():
     parser.add_argument("--image-size", type=list, default=[416, 416], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    parser.add_argument("--single-cls", action="store_true", help="train multi-class data as single-class")
     parser.add_argument("--optimizer",
                         type=str,
                         choices=["SGD", "Adam", "AdamW"],
