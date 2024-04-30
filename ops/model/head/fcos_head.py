@@ -89,5 +89,6 @@ class FCOSHead(nn.Module):
             bs, _, ny, nx = x[i].shape
             x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).permute([0, 2, 3, 1]).contiguous()
             if not self.training:  # inference
+                pass
 
-        return bbox_regression, bbox_ctrness, cls_logits
+        return x if self.training else None

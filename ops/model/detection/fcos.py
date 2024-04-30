@@ -22,11 +22,7 @@ class FCOS(nn.Module):
         self.backbone = _resnet_fpn_extractor(backbone, trainable_backbone_layers,
                                               returned_layers=[2, 3, 4],
                                               extra_blocks=LastLevelP6P7(256, 256))
-        self.head7 = FCOSHead(256, num_classes)
-        self.head6 = FCOSHead(256, num_classes)
-        self.head5 = FCOSHead(256, num_classes)
-        self.head4 = FCOSHead(256, num_classes)
-        self.head3 = FCOSHead(256, num_classes)
+        self.head = FCOSHead([256, 256, 256, 256, 256], num_classes)
 
     def forward(self, x):
         fpn_out = self.backbone(x)
@@ -37,7 +33,7 @@ class FCOS(nn.Module):
         p4 = fpn_out['1']
         p3 = fpn_out['0']
 
-        return self.head3(p3), self.head4(p4), self.head5(p5), self.head6(p6), self.head7(p7)
+        return self.head([p3, p4, p5, p6, p7])
 
 
 def get_model(args):
