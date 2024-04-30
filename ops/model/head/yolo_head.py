@@ -149,7 +149,7 @@ class YoloV4Head(nn.Module):
                 xy, wh, conf = x[i].split((2, 2, self.num_classes + 1), -1)
                 xy = (xy.sigmoid() + grid) * stride  # xy
                 wh = wh.exp() * anchor_grid  # wh
-                y = torch.cat((xy, wh, conf), 4)
+                y = torch.cat((xy, wh, conf.sigmoid()), 4)
 
                 z.append(y.view(bs, self.na * nx * ny, self.no))
 
