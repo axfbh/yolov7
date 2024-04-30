@@ -7,6 +7,7 @@ from ops.model.backbone.elandarknet import ElanDarkNet, CBS, MP1, Elan
 from ops.model.backbone.utils import _elandarknet_extractor
 from typing import List
 
+
 class YoloV7(nn.Module):
     def __init__(self, anchors: List, num_classes: int, phi: str):
         super(YoloV7, self).__init__()

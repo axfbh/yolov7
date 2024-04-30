@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from ops.model.backbone.cspdarknet import CSPDarknetV1, CBM
 from ops.model.backbone.utils import _cspdarknet_extractor
-from ops.model.head.yolo_head import YoloHead
+from ops.model.head.yolo_head import YoloV4Head
 from ops.model.neck.spp import SPP
 
 
@@ -41,7 +41,7 @@ def make_three_conv(filters_list, in_filters):
 
 
 class YoloV4(nn.Module):
-    def __init__(self, num_anchors, num_classes, phi):
+    def __init__(self, anchors, num_classes, phi):
         super(YoloV4, self).__init__()
 
         depth_dict = {'s': 0.33, 'm': 0.67, 'l': 1.00, 'x': 1.33, }
@@ -53,25 +53,27 @@ class YoloV4(nn.Module):
 
         self.backbone = _cspdarknet_extractor(CSPDarknetV1(base_channels, base_depth), 5)
 
-        self.cov1 = make_three_conv([512, 1024], 1024)
+        self.cov1 = make_three_conv([base_channels * 16, base_channels * 32], base_channels * 32)
         self.spp = SPP([5, 9, 13])
-        self.cov2 = make_three_conv([512, 1024], 2048)
+        self.cov2 = make_three_conv([base_channels * 16, base_channels * 32], base_channels * 64)
 
-        self.upsample1 = Upsample(512, 256)
-        self.conv_for_P4 = CBM(512, 256, 1)
-        self.make_five_conv1 = make_five_conv([256, 512], 512)
+        self.upsample1 = Upsample(base_channels * 16, base_channels * 8)
+        self.conv_for_P4 = CBM(base_channels * 16, base_channels * 8, 1)
+        self.make_five_conv1 = make_five_conv([base_channels * 8, base_channels * 16], base_channels * 16)
 
-        self.upsample2 = Upsample(256, 128)
-        self.conv_for_P3 = CBM(256, 128, 1)
-        self.make_five_conv2 = make_five_conv([128, 256], 256)
+        self.upsample2 = Upsample(base_channels * 8, base_channels * 4)
+        self.conv_for_P3 = CBM(base_channels * 8, base_channels * 4, 1)
+        self.make_five_conv2 = make_five_conv([base_channels * 4, base_channels * 8], base_channels * 8)
 
-        self.down_sample1 = CBM(128, 256, 3, stride=2)
-        self.make_five_conv3 = make_five_conv([256, 512], 512)
+        self.down_sample1 = CBM(base_channels * 4, base_channels * 8, 3, stride=2)
+        self.make_five_conv3 = make_five_conv([base_channels * 8, base_channels * 16], base_channels * 16)
 
-        self.down_sample2 = CBM(256, 512, 3, stride=2)
-        self.make_five_conv4 = make_five_conv([512, 1024], 1024)
+        self.down_sample2 = CBM(base_channels * 8, base_channels * 16, 3, stride=2)
+        self.make_five_conv4 = make_five_conv([base_channels * 16, base_channels * 32], base_channels * 32)
 
-        self.head = YoloHead([128, 256, 512], num_anchors, num_classes)
+        self.head = YoloV4Head([base_channels * 4, base_channels * 8, base_channels * 16],
+                               anchors,
+                               num_classes)
 
     def forward(self, x):
         x = self.backbone(x)
@@ -105,6 +107,5 @@ class YoloV4(nn.Module):
         return head
 
 
-def get_model(args):
-    model = YoloV4(3, args.num_classes)
-    return model
+def get_model(cfg):
+    return YoloV4(anchors=cfg.anchors, num_classes=cfg.nc, phi='l')
