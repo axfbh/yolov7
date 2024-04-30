@@ -4,17 +4,21 @@ import torch.nn as nn
 from utils.iou import iou_loss
 from torchvision.ops.focal_loss import sigmoid_focal_loss
 from utils.anchor_utils import AnchorGenerator
+from ops.loss.basic_loss import BasicLoss
+from ops.utils.torch_utils import de_parallel
 
 torch.set_printoptions(precision=4, sci_mode=False)
 
 
-class Fcosloss(nn.Module):
-    def __init__(self, sigma, args):
-        super(Fcosloss, self).__init__()
-        self.num_classes = args.num_classes
-        self.device = args.device.train
+class Fcosloss(BasicLoss):
+    def __init__(self, model):
+        super(Fcosloss, self).__init__(model)
 
-        self.sigma = sigma
+        m = de_parallel(model).head
+        self.nl = m.nl
+        self.na = m.na
+        self.num_classes = m.num_classes
+
         self.anchor_generator = AnchorGenerator([8, 16, 32, 64, 128], self.device)
 
         self.lower_bounds = self.anchor_generator.sizes * 4
@@ -39,7 +43,7 @@ class Fcosloss(nn.Module):
 
             anchor_sizes = anchor[0, 2] - anchor[0, 0]
 
-            radius = anchor_sizes * self.sigma
+            radius = anchor_sizes * self.hyp['sigma']
 
             limit_range = [self.lower_bounds[i], self.upper_bounds[i]]
 
