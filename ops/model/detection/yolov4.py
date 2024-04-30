@@ -77,7 +77,6 @@ class YoloV4(nn.Module):
 
     def forward(self, x):
         _, _, H, W = x.size()
-
         x = self.backbone(x)
 
         feat1, feat2, feat3 = x['0'], x['1'], x['2']
