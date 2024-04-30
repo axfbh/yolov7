@@ -56,6 +56,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     scheduler = smart_scheduler(optimizer,
                                 opt.scheduler,
                                 last_epoch,
+                                eta_min=hyp['lrf'],
                                 T_max=end_epoch)
 
     # ---------- 学习率预热器 ----------
