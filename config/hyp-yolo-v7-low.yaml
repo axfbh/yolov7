@@ -3,7 +3,8 @@
 
 # Hyperparameters for low-augmentation
 # ---------- 优化器 参数 ----------
-lr: 0.01
+lr: 0.01 # initial learning rate (SGD=1E-2, Adam=1E-3)
+lrf: 0.01 # final OneCycleLR learning rate (lr0 * lrf)
 momentum: 0.937
 weight_decay: 0.0005
 
