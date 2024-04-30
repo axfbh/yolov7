@@ -22,6 +22,7 @@ class FCOS(nn.Module):
         self.backbone = _resnet_fpn_extractor(backbone, trainable_backbone_layers,
                                               returned_layers=[2, 3, 4],
                                               extra_blocks=LastLevelP6P7(256, 256))
+
         self.head = FCOSHead([256, 256, 256, 256, 256], num_classes)
 
     def forward(self, x):

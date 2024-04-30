@@ -84,8 +84,8 @@ class FCOSHead(nn.Module):
         for i in range(self.nl):
             classification_head = self.head[i][0]
             regression_head = self.head[i][1]
-            cls_logits = classification_head(x)
-            bbox_regression, bbox_ctrness = regression_head(x)
+            cls_logits = classification_head(x[i])
+            bbox_regression, bbox_ctrness = regression_head(x[i])
             bs, _, ny, nx = x[i].shape
             x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).permute([0, 2, 3, 1]).contiguous()
             if not self.training:  # inference
