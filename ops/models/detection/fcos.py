@@ -4,11 +4,11 @@ import math
 from torchvision.models.resnet import resnet50, ResNet50_Weights
 from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
 from torchvision.ops.feature_pyramid_network import LastLevelP6P7
-from ops.model.head.fcos_head import FCOSHead
+from ops.models.head.fcos_head import FCOSHead
 
 
 class FCOS(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, anchors, aspect_ratios):
         super(FCOS, self).__init__()
 
         weights_backbone = ResNet50_Weights.IMAGENET1K_V1
@@ -23,7 +23,7 @@ class FCOS(nn.Module):
                                               returned_layers=[2, 3, 4],
                                               extra_blocks=LastLevelP6P7(256, 256))
 
-        self.head = FCOSHead([256, 256, 256, 256, 256], num_classes)
+        self.head = FCOSHead([256, 256, 256, 256, 256], anchors, aspect_ratios, num_classes)
 
     def forward(self, x):
         fpn_out = self.backbone(x)
@@ -35,7 +35,3 @@ class FCOS(nn.Module):
         p3 = fpn_out['0']
 
         return self.head([p3, p4, p5, p6, p7])
-
-
-def get_model(num_classes):
-    return FCOS(num_classes)

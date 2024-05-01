@@ -19,23 +19,21 @@ class FcosLoss(BasicLoss):
         self.na = m.na
         self.num_classes = m.num_classes
 
-        self.anchor_generator = AnchorGenerator([8, 16, 32, 64, 128], self.device)
+        self.anchors = m.anchors
 
-        self.lower_bounds = self.anchor_generator.sizes * 4
+        self.lower_bounds = torch.tensor(self.anchors.sizes, device=self.device, dtype=torch.float32) * 4.
         self.lower_bounds[0] = 0
-        self.upper_bounds = self.anchor_generator.sizes * 8
+        self.upper_bounds = torch.tensor(self.anchors.sizes, device=self.device, dtype=torch.float32) * 8.
         self.upper_bounds[-1] = torch.inf
 
-    def build_targets(self, targets, grids, image_size):
+    def build_targets(self, p, targets, image_size):
         tcls, tbox, tcnt, indices, anchs = [], [], [], [], []
 
-        anchors = self.anchor_generator(image_size, grids)
+        anchors, strides = self.anchors(image_size, p)
 
-        strides = self.anchor_generator.strides
+        for i in range(self.nl):
 
-        for i in range(len(grids)):
-
-            stride = strides[i].flip(0)
+            stride = strides[i].flip(0)  # H,W -> W,H
 
             anchor = anchors[i]
 
@@ -54,7 +52,9 @@ class FcosLoss(BasicLoss):
             t = torch.Tensor(size=(0, 8)).to(self.device)
 
             # ------------- 每个 image 单独制作gt -------------
-            for tb in targets:
+            for si in range(p[0].shape[0]):
+                tb = targets[targets[:, 0] == si]
+
                 nb, cls, x0, y0, x1, y1 = tb.unbind(1)
 
                 # ------------ 所有网格 与 目标的左上角和右下角计算 偏移量 ------------
@@ -133,15 +133,13 @@ class FcosLoss(BasicLoss):
         return tcls, tbox, tcnt, anchs, indices
 
     def forward(self, preds, targets, image_size):
-        grids = [torch.as_tensor(pi[0].shape[-2:], device=self.device) for pi in preds]
-
         BCE = nn.BCEWithLogitsLoss(reduction='sum')
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lcnt = torch.zeros(1, dtype=torch.float32, device=self.device)
         lbox = torch.zeros(1, dtype=torch.float32, device=self.device)
 
-        tcls, tbox, tcnt, anchs, indices = self.build_targets(targets, grids, image_size)
+        tcls, tbox, tcnt, anchs, indices = self.build_targets(preds, targets, image_size)
 
         n = 0
 

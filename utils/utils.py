@@ -1,7 +1,7 @@
 import torch
 
 
-def make_grid(h, w, sh, sw, dtype, device):
+def make_grid(h, w, sh, sw, dtype, device='cpu'):
     shifts_x = torch.arange(0, w, dtype=dtype, device=device) * sw
     shifts_y = torch.arange(0, h, dtype=dtype, device=device) * sh
 

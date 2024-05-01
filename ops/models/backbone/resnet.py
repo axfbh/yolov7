@@ -182,7 +182,7 @@ class ResNet(nn.Module):
 
 
 def resnet50(num_classes) -> ResNet:
-    """ Constructs a ResNet-50 model.
+    """ Constructs a ResNet-50 models.
     """
 
     return ResNet(planes=[64, 128, 256, 512],

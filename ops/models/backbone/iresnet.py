@@ -270,14 +270,14 @@ class iResNet(nn.Module):
 
 
 def iresnet18(num_classes=1000, **kwargs):
-    """Constructs a iResNet-18 model.
+    """Constructs a iResNet-18 models.
     """
     model = iResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, **kwargs)
     return model
 
 
 def iresnet50(num_classes=1000, **kwargs):
-    """Constructs a iResNet-50 model.
+    """Constructs a iResNet-50 models.
     """
     model = iResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
     return model

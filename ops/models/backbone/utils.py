@@ -1,7 +1,7 @@
 import torch
-from ops.model.backbone import cspdarknet
-from ops.model.backbone import darknet
-from ops.model.backbone import elandarknet
+from ops.models.backbone import cspdarknet
+from ops.models.backbone import darknet
+from ops.models.backbone import elandarknet
 from typing import Optional, List, Union
 import torch.nn as nn
 from torchvision.models._utils import IntermediateLayerGetter

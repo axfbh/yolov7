@@ -13,7 +13,7 @@ from albumentations.pytorch import ToTensorV2
 from ops.dataset.voc_dataset import VOCDetection
 from ops.dataset.utils import detect_collate_fn
 import ops.cv.io as io
-from ops.transform.resize_maker import ResizeLongestPaddingShort
+from ops.transform.resize_maker import ResizeLongestPaddingShort, ResizeShortLongest
 from ops.utils.logging import LOGGER, colorstr
 
 np.random.seed(0)
@@ -26,7 +26,9 @@ class MyDataSet(VOCDetection):
     def __getitem__(self, item):
         image, bbox_params, classes = super().__getitem__(item)
 
-        resize_sample = ResizeLongestPaddingShort(self.image_size, shuffle=False)(image=image, bbox_params=bbox_params)
+        # resize_sample = ResizeLongestPaddingShort(self.image_size, shuffle=False)(image=image, bbox_params=bbox_params)
+
+        resize_sample = ResizeShortLongest(self.image_size)(image, bbox_params=bbox_params)
 
         # io.visualize(resize_sample['image'], resize_sample['bbox_params'], classes, self.id2name)
 

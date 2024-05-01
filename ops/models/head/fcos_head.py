@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import math
 from typing import List
+# from utils.anchor_utils import AnchorGenerator
+from utils.anchor_utils import AnchorGenerator
 
 
 class FCOSRegressionHead(nn.Module):
@@ -71,9 +73,13 @@ class FCOSClassificationHead(nn.Module):
 
 
 class FCOSHead(nn.Module):
-    def __init__(self, in_channels_list: List, num_classes):
+    def __init__(self, in_channels_list: List, anchors, aspect_ratios, num_classes):
         super(FCOSHead, self).__init__()
+        self.num_classes = num_classes
         self.nl = len(in_channels_list)
+        self.na = len(anchors[0])
+        self.anchors = AnchorGenerator(anchors, aspect_ratios)
+
         self.head = nn.ModuleList()
         for in_channels in in_channels_list:
             self.head.append(

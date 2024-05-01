@@ -20,7 +20,7 @@ class InvertedResidual(nn.Module):
                 kernel_size=1,
                 stride=1,
                 norm_layer=nn.BatchNorm2d,
-                activation_layer=nn.ReLU,
+                activation_layer=None,
                 bias=False,
             )
         )
@@ -34,7 +34,8 @@ class InvertedResidual(nn.Module):
                 stride=1,
                 groups=exp_ch,
                 norm_layer=nn.BatchNorm2d,
-                activation_layer=None,
+                activation_layer=nn.ReLU,
+                inplace=True,
                 bias=False,
             )
         )
@@ -101,52 +102,42 @@ class Bottleneck(nn.Module):
                                          bias=False,
                                          inplace=True)
 
-        # self.recover = InvertedResidual(inplane,
-        #                                 plane * self.expansion)
+        self.conv3 = nn.Conv2d(width, plane * self.expansion, kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn3 = norm_layer(plane * self.expansion)
 
-        self.recover = Conv2dNormActivation(
-            inplane,
-            plane * self.expansion,
-            kernel_size=1,
-            stride=1,
-            norm_layer=nn.BatchNorm2d,
-            activation_layer=None,
-            inplace=True,
-            bias=False,
-        )
+        self.recover = InvertedResidual(inplane, plane * self.expansion)
 
         self.maxpool = nn.MaxPool2d(2, 2)
 
-        self.conv3 = nn.Conv2d(width, plane * self.expansion, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn3 = norm_layer(plane * self.expansion)
-        self.relu = activation_layer(inplace=True)
+        self.relu = activation_layer()
 
     def forward(self, x):
-        identity = x
 
-        out = self.cna1(x)
+        out = self.relu(x)
+
+        identity = out
+
+        identity2 = x
+
+        out = self.cna1(out)
 
         out = self.cna2(out)
 
         out = self.conv3(out)
+
         out = self.bn3(out)
 
-        identity2 = self.recover(x)
+        identity2 = self.recover(identity2)
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            identity = self.downsample(identity)
 
         if out.shape[-2:] != x.shape[-2:]:
             identity2 = self.maxpool(identity2)
 
-        # identity = self.relu1(identity)
-        # identity2 = self.relu2(identity2)
-
         identity = identity + identity2
 
         out = out + identity
-
-        out = self.relu(out)
 
         return out
 
@@ -188,9 +179,8 @@ class ResNet(nn.Module):
                                          stride=2,
                                          padding=3,
                                          norm_layer=norm_layer,
-                                         activation_layer=activation_layer,
-                                         bias=False,
-                                         inplace=True)
+                                         activation_layer=None,
+                                         bias=False)
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -201,6 +191,7 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.relu = self.activation_layer(inplace=True)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -228,7 +219,8 @@ class ResNet(nn.Module):
                                               stride=stride,
                                               padding=0,
                                               norm_layer=self.norm_layer,
-                                              activation_layer=None,
+                                              activation_layer=self.activation_layer,
+                                              inplace=True,
                                               bias=False)
 
         layers = nn.Sequential()
@@ -264,6 +256,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        x = self.relu(x)
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
@@ -273,7 +266,7 @@ class ResNet(nn.Module):
 
 
 def resnet50(num_classes) -> ResNet:
-    """ Constructs a ResNet-50 model.
+    """ Constructs a ResNet-50 models.
     """
 
     return ResNet(block=Bottleneck,

@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from functools import partial
 from torchvision.ops.misc import Conv2dNormActivation
-from ops.model.neck.spp import SPP
+from ops.models.neck.spp import SPP
 
 BN = partial(nn.BatchNorm2d, eps=0.001, momentum=0.03)
 CBM = partial(Conv2dNormActivation, bias=False, inplace=True, norm_layer=BN, activation_layer=nn.Mish)

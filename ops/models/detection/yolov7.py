@@ -1,10 +1,10 @@
 import torch.nn as nn
 import torch
-from ops.model.neck.spp import SPPCSPC
-from ops.model.head.yolo_head import YoloV7Head
-from ops.model.misc.rep_conv import RepConv2d
-from ops.model.backbone.elandarknet import ElanDarkNet, CBS, MP1, Elan
-from ops.model.backbone.utils import _elandarknet_extractor
+from ops.models.neck.spp import SPPCSPC
+from ops.models.head.yolo_head import YoloV7Head
+from ops.models.misc.rep_conv import RepConv2d
+from ops.models.backbone.elandarknet import ElanDarkNet, CBS, MP1, Elan
+from ops.models.backbone.utils import _elandarknet_extractor
 from typing import List
 
 

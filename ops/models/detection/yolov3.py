@@ -1,9 +1,9 @@
 from torch import nn
 
-from ops.model.neck.panet import PanNetTopDown
-from ops.model.head.yolo_head import YoloHead
-from ops.model.backbone.utils import _darknet_extractor
-from ops.model.backbone.darknet import DarkNet
+from ops.models.neck.panet import PanNetTopDown
+from ops.models.head.yolo_head import YoloHead
+from ops.models.backbone.utils import _darknet_extractor
+from ops.models.backbone.darknet import DarkNet
 
 
 class ConvolutionalLayer(nn.Sequential):

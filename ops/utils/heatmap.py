@@ -136,7 +136,7 @@ class CAMHeatMapFeatureShow:
 
     def fit(self, x, y, image):
         """
-        :param model: 模型
+        :param models: 模型
         :param x: Tensor 输入数据 单个 输入特性
         :param y: 分类结果
         :param image: Numpy 输入数据 单个 输入特性
@@ -147,7 +147,7 @@ class CAMHeatMapFeatureShow:
         prob, prelab = torch.topk(im_pre_prob, 5)
         prelab = prelab.numpy().flatten()
 
-        # 必须在 model 里面 使用 x.register_hook(self.activations_hook)，可使用在 多维特这个图，但必须是 2D 特征图
+        # 必须在 models 里面 使用 x.register_hook(self.activations_hook)，可使用在 多维特这个图，但必须是 2D 特征图
         y[:, prelab[0]].backward()  # 获取相对于模型参数的梯度
 
         gradients = get_activations_gradient(self.model)  # 获取模型的梯度

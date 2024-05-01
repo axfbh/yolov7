@@ -93,22 +93,22 @@ class History:
             "best_fitness": fitness,
             'optimizer_name': optimizer.__class__.__name__,
             'optimizer': optimizer.state_dict(),
-            'model': deepcopy(de_parallel(model)),
+            'models': deepcopy(de_parallel(model)),
             "ema": deepcopy(ema.ema),
             "updates": ema.updates,
             "date": datetime.now().isoformat(),
         }
 
-        # ---------- save last model --------------
+        # ---------- save last models --------------
         last_pt_path = self.weight_dir.joinpath('last.pt')
         torch.save(save_dict, last_pt_path)
 
-        # ---------- save best model --------------
+        # ---------- save best models --------------
         if fitness == self.best_fitness:
             best_pt_path = self.weight_dir.joinpath('best.pt')
             torch.save(save_dict, best_pt_path)
 
-        # ---------- save period model --------------
+        # ---------- save period models --------------
         if (epoch + 1) % self.save_period == 0:
             weights_pt_path = self.weight_dir.joinpath(f'weights{str(epoch)}.pt')
             torch.save(save_dict, weights_pt_path)

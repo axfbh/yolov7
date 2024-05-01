@@ -108,8 +108,8 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
 
     save_dict = torch.load(save_path, map_location='cpu')
 
-    # ------------ resume model ------------
-    model_param = save_dict['model'].state_dict()
+    # ------------ resume models ------------
+    model_param = save_dict['models'].state_dict()
     _load_from(model, model_param)
 
     last_epoch = save_dict.get('last_epoch', last_epoch)
@@ -119,7 +119,7 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
     best_fitness = save_dict.get('best_fitness', best_fitness)
 
     LOGGER.info(
-        f"{colorstr('model loaded:')} Resuming training from {save_path} from epoch {start_epoch} to {epochs} total epochs"
+        f"{colorstr('models loaded:')} Resuming training from {save_path} from epoch {start_epoch} to {epochs} total epochs"
     )
 
     # ------------ resume ema ------------
@@ -142,25 +142,25 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
             )
     else:
         LOGGER.warning(
-            f"{colorstr('Warning:')} Cannot loaded the optimizer parameter, but it doesnt affect the model working."
+            f"{colorstr('Warning:')} Cannot loaded the optimizer parameter, but it doesnt affect the models working."
         )
 
     return best_fitness, last_iter, last_epoch, start_epoch, epochs
 
 
 def is_parallel(model):
-    # Returns True if model is of type DP or DDP
+    # Returns True if models is of type DP or DDP
     return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
 
 
 def de_parallel(model):
-    # De-parallelize a model: returns single-GPU model if model is of type DP or DDP
+    # De-parallelize a models: returns single-GPU models if models is of type DP or DDP
     return model.module if is_parallel(model) else model
 
 
 class ModelEMA:
     """Updated Exponential Moving Average (EMA) from https://github.com/rwightman/pytorch-image-models
-    Keeps a moving average of everything in the model state_dict (parameters and buffers)
+    Keeps a moving average of everything in the models state_dict (parameters and buffers)
     For EMA details see https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
     """
 
@@ -177,7 +177,7 @@ class ModelEMA:
         self.updates += 1
         d = self.decay(self.updates)
 
-        msd = de_parallel(model).state_dict()  # model state_dict
+        msd = de_parallel(model).state_dict()  # models state_dict
         for k, v in self.ema.state_dict().items():
             if v.dtype.is_floating_point:  # true for FP16 and FP32
                 v *= d
@@ -185,7 +185,7 @@ class ModelEMA:
 
 
 def output_to_target(output, max_det=300):
-    # Convert model output to target format [batch_id, class_id, x, y, w, h, conf] for plotting
+    # Convert models output to target format [batch_id, class_id, x, y, w, h, conf] for plotting
     targets = []
     for i, o in enumerate(output):
         box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)

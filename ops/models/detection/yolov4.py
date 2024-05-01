@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch
-from ops.model.backbone.cspdarknet import CSPDarknetV1, CBM
-from ops.model.backbone.utils import _cspdarknet_extractor
-from ops.model.head.yolo_head import YoloV4Head
-from ops.model.neck.spp import SPP
+from ops.models.backbone.cspdarknet import CSPDarknetV1, CBM
+from ops.models.backbone.utils import _cspdarknet_extractor
+from ops.models.head.yolo_head import YoloV4Head
+from ops.models.neck.spp import SPP
 
 
 class Upsample(nn.Module):
@@ -41,15 +41,11 @@ def make_three_conv(filters_list, in_filters):
 
 
 class YoloV4(nn.Module):
-    def __init__(self, anchors, num_classes, phi):
+    def __init__(self, anchors, num_classes, depth_multiple, width_multiple):
         super(YoloV4, self).__init__()
 
-        depth_dict = {'s': 0.33, 'm': 0.67, 'l': 1.00, 'x': 1.33, }
-        width_dict = {'s': 0.50, 'm': 0.75, 'l': 1.00, 'x': 1.25, }
-        dep_mul, wid_mul = depth_dict[phi], width_dict[phi]
-
-        base_channels = int(wid_mul * 32)  # 64
-        base_depth = max(round(dep_mul * 3), 1)  # 3
+        base_channels = int(width_multiple * 32)  # 64
+        base_depth = max(round(depth_multiple * 3), 1)  # 3
 
         self.backbone = _cspdarknet_extractor(CSPDarknetV1(base_channels, base_depth), 5)
 
