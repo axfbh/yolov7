@@ -103,9 +103,7 @@ class FCOSHead(nn.Module):
             if not self.training:  # inference
                 x[i] = x[i].permute(0, 1, 3, 4, 2).contiguous()
 
-                shape = 1, self.na, ny, nx, 4  # grid shape
-
-                anchor = anchors[i].view((1, self.na, ny, nx, 4)).expand(shape)
+                anchor = anchors[i].view((1, self.na, ny, nx, 4))
 
                 pxy = 0.5 * (anchor[..., :2] + anchor[..., 2:])
 
