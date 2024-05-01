@@ -7,7 +7,7 @@ from torchvision.ops.boxes import box_convert
 
 
 class FCOSRegressionHead(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, num_anchors):
         super(FCOSRegressionHead, self).__init__()
 
         conv = []
@@ -17,7 +17,7 @@ class FCOSRegressionHead(nn.Module):
             conv.append(nn.ReLU())
         self.conv = nn.Sequential(*conv)
 
-        self.bbox_reg = nn.Conv2d(in_channels, 4, kernel_size=3, stride=1, padding=1)
+        self.bbox_reg = nn.Conv2d(in_channels, num_anchors * 4, kernel_size=3, stride=1, padding=1)
         self.bbox_ctrness = nn.Conv2d(in_channels, 1, kernel_size=3, stride=1, padding=1)
 
         self.reset_parameters()
@@ -79,17 +79,18 @@ class FCOSHead(nn.Module):
         self.nl = len(in_channels_list)
         self.na = len(anchors[0])
         self.anchors = AnchorGenerator(anchors, aspect_ratios)
-
+        self.no = num_classes + 5
         self.head = nn.ModuleList()
         for in_channels in in_channels_list:
             self.head.append(
-                nn.ModuleList([FCOSClassificationHead(in_channels, num_classes), FCOSRegressionHead(in_channels)])
+                nn.ModuleList(
+                    [FCOSClassificationHead(in_channels, num_classes), FCOSRegressionHead(in_channels, self.na)])
             )
 
     def forward(self, x, H, W):
         z = []
         device = x[0].device
-        imgsze = torch.tensor([W, H], device=device)
+        imgsze = torch.tensor([H, W], device=device)
         anchors, strides = self.anchors(imgsze, x)
 
         for i in range(self.nl):
@@ -98,11 +99,13 @@ class FCOSHead(nn.Module):
             cls_logits = classification_head(x[i])
             bbox_regression, bbox_ctrness = regression_head(x[i])
             bs, _, ny, nx = x[i].shape
-            x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).permute([0, 2, 3, 1]).contiguous()
+            x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).view(bs, self.na, self.no, ny, nx)
             if not self.training:  # inference
-                shape = 1, self.na, ny, nx, 2  # grid shape
+                x[i] = x[i].permute(0, 1, 3, 4, 2).contiguous()
 
-                anchor = anchors[i].view((1, 1, ny, nx, 2)).expand(shape)
+                shape = 1, self.na, ny, nx, 4  # grid shape
+
+                anchor = anchors[i].view((1, self.na, ny, nx, 4)).expand(shape)
 
                 pxy = 0.5 * (anchor[..., :2] + anchor[..., 2:])
 
@@ -115,7 +118,7 @@ class FCOSHead(nn.Module):
 
                 conf, cls = conf.sigmoid(), cls.sigmoid()
 
-                cls_scores, _ = torch.max(cls, dim=-1)
+                cls_scores, _ = torch.max(cls, dim=-1, keepdim=True)
 
                 conf = (conf * cls_scores).sqrt()
 

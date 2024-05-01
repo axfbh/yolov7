@@ -19,7 +19,7 @@ class AnchorGenerator(AG):
         super(AnchorGenerator, self).__init__(sizes, aspect_ratios)
 
     def forward(self, image_sizes: torch.Tensor, feature_maps: torch.Tensor):
-        grid_sizes = [feature_map.shape[-3:-1] for feature_map in feature_maps]
+        grid_sizes = [feature_map.shape[-2:] for feature_map in feature_maps]
         dtype, device = feature_maps[0].dtype, feature_maps[0].device
 
         strides = [

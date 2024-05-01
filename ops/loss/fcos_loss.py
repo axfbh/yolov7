@@ -149,10 +149,11 @@ class FcosLoss(BasicLoss):
 
         tcls, tbox, tcnt, anchs, indices = self.build_targets(preds, targets, image_size)
 
-        for i, pi in enumerate(preds):
+        for i, pred in enumerate(preds):
             # 1：reg_head
             # 2：cnt_head
             # 3：cls_head
+            pi = pred.permute(0, 1, 3, 4, 2).contiguous()
             b, gj, gi = indices[i]
 
             nb = len(b)
@@ -160,8 +161,8 @@ class FcosLoss(BasicLoss):
             tobj = torch.zeros_like(pi[..., 5:])
 
             if nb:
-                ps = pi[b, gj, gi]
-                tobj[b, gj, gi, tcls[i]] = 1.0
+                ps = pi[b, 0, gj, gi]
+                tobj[b, 0, gj, gi, tcls[i]] = 1.0
 
                 pxy, anch_wh = anchs[i]
 
