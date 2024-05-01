@@ -101,7 +101,7 @@ class FCOSHead(nn.Module):
             bs, _, ny, nx = x[i].shape
             x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).view(bs, self.na, self.no, ny, nx)
             if not self.training:  # inference
-                x[i] = x[i].permute(0, 1, 3, 4, 2).contiguous()
+                p = x[i].permute(0, 1, 3, 4, 2).contiguous()
 
                 anchor = anchors[i].view((1, self.na, ny, nx, 4))
 
@@ -109,7 +109,7 @@ class FCOSHead(nn.Module):
 
                 pwh = anchor[..., 2:] - anchor[..., :2]
 
-                x1y1, x2y2, conf, cls = x[i].split((2, 2, 1, self.num_classes), -1)
+                x1y1, x2y2, conf, cls = p.split((2, 2, 1, self.num_classes), -1)
                 x1y1 = pxy - (x1y1 * pwh)
                 x2y2 = pxy + (x2y2 * pwh)
                 xywh = box_convert(torch.cat([x1y1, x2y2], -1), in_fmt='xyxy', out_fmt='cxcywh')
