@@ -6,6 +6,7 @@ from torchvision.ops.focal_loss import sigmoid_focal_loss
 from utils.anchor_utils import AnchorGenerator
 from ops.loss.basic_loss import BasicLoss
 from ops.utils.torch_utils import de_parallel
+from torchvision.ops.boxes import box_convert
 
 torch.set_printoptions(precision=4, sci_mode=False)
 
@@ -21,6 +22,8 @@ class FcosLoss(BasicLoss):
 
         self.anchors = m.anchors
 
+        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([self.hyp['cls_pw']], device=self.device))
+
         self.lower_bounds = torch.tensor(self.anchors.sizes, device=self.device, dtype=torch.float32) * 4.
         self.lower_bounds[0] = 0
         self.upper_bounds = torch.tensor(self.anchors.sizes, device=self.device, dtype=torch.float32) * 8.
@@ -28,6 +31,8 @@ class FcosLoss(BasicLoss):
 
     def build_targets(self, p, targets, image_size):
         tcls, tbox, tcnt, indices, anchs = [], [], [], [], []
+
+        targets[:, 2:] = box_convert(targets[:, 2:], in_fmt='cxcywh', out_fmt='xyxy')
 
         anchors, strides = self.anchors(image_size, p)
 
@@ -55,52 +60,55 @@ class FcosLoss(BasicLoss):
             for si in range(p[0].shape[0]):
                 tb = targets[targets[:, 0] == si]
 
-                nb, cls, x0, y0, x1, y1 = tb.unbind(1)
+                nt = len(tb)
 
-                # ------------ 所有网格 与 目标的左上角和右下角计算 偏移量 ------------
-                # l_off[N,M]: x[N,1] ,x0[M]
-                tb = torch.stack([nb - identity,
-                                  cls - identity,
-                                  x0 - identity,
-                                  y0 - identity,
-                                  x - x0,
-                                  y - y0,
-                                  x1 - x,
-                                  y1 - y], dim=-1)
+                if nt:
+                    nb, cls, x0, y0, x1, y1 = tb.unbind(1)
 
-                ltrb_off = tb[..., 4:]
-                off_min = torch.min(ltrb_off, dim=-1)[0]  # [batch_size,h*w,m]
-                off_max = torch.max(ltrb_off, dim=-1)[0]  # [batch_size,h*w,m]
+                    # ------------ 所有网格 与 目标的左上角和右下角计算 偏移量 ------------
+                    # l_off[N,M]: x[N,1] ,x0[M]
+                    tb = torch.stack([nb - identity,
+                                      cls - identity,
+                                      x0 - identity,
+                                      y0 - identity,
+                                      x - x0,
+                                      y - y0,
+                                      x1 - x,
+                                      y1 - y], dim=-1)
 
-                # ------------- 所有网格 与 目标中心点计算 距离 -------------
-                cx = (x0 + x1) / 2
-                cy = (y0 + y1) / 2
-                c_ltrb_off = torch.stack([x - cx, y - cy, cx - x, cy - y], dim=-1)
-                c_off_max = torch.max(c_ltrb_off, dim=-1)[0]
+                    ltrb_off = tb[..., 4:]
+                    off_min = torch.min(ltrb_off, dim=-1)[0]  # [batch_size,h*w,m]
+                    off_max = torch.max(ltrb_off, dim=-1)[0]  # [batch_size,h*w,m]
 
-                # limit_range：满足论文 m 要求
-                # radiu: 选择，中心点半径内的点帮助预测
-                j = (off_max > limit_range[0]) & \
-                    (off_max < limit_range[1]) & \
-                    (off_min > 0) & (c_off_max < radius)
+                    # ------------- 所有网格 与 目标中心点计算 距离 -------------
+                    cx = (x0 + x1) / 2
+                    cy = (y0 + y1) / 2
+                    c_ltrb_off = torch.stack([x - cx, y - cy, cx - x, cy - y], dim=-1)
+                    c_off_max = torch.max(c_ltrb_off, dim=-1)[0]
 
-                # ------------- 目标面积 -------------
-                areas = (ltrb_off[..., 0] + ltrb_off[..., 2]) * (ltrb_off[..., 1] + ltrb_off[..., 3])
+                    # limit_range：满足论文 m 要求
+                    # radiu: 选择，中心点半径内的点帮助预测
+                    j = (off_max > limit_range[0]) & \
+                        (off_max < limit_range[1]) & \
+                        (off_min > 0) & (c_off_max < radius)
 
-                # ------------- 不符合要求的面积设置最小 -------------
-                areas = j * (1e8 - areas)
+                    # ------------- 目标面积 -------------
+                    areas = (ltrb_off[..., 0] + ltrb_off[..., 2]) * (ltrb_off[..., 1] + ltrb_off[..., 3])
 
-                areas_min_ind = torch.max(areas, dim=-1)[1]
+                    # ------------- 不符合要求的面积设置最小 -------------
+                    areas = j * (1e8 - areas)
 
-                tb = tb[
-                    torch.zeros_like(areas, dtype=torch.bool).scatter_(-1, areas_min_ind.unsqueeze(dim=-1), 1)
-                ]
+                    areas_min_ind = torch.max(areas, dim=-1)[1]
 
-                j = j.sum(1) >= 1
+                    tb = tb[
+                        torch.zeros_like(areas, dtype=torch.bool).scatter_(-1, areas_min_ind.unsqueeze(dim=-1), 1)
+                    ]
 
-                tb = tb[j]
+                    j = j.sum(1) >= 1
 
-                t = torch.cat([t, tb], 0)
+                    tb = tb[j]
+
+                    t = torch.cat([t, tb], 0)
 
             b, c = t[:, :2].long().t()
 
@@ -133,7 +141,7 @@ class FcosLoss(BasicLoss):
         return tcls, tbox, tcnt, anchs, indices
 
     def forward(self, preds, targets, image_size):
-        BCE = nn.BCEWithLogitsLoss(reduction='sum')
+        bs = preds[0].shape[0]
 
         lcls = torch.zeros(1, dtype=torch.float32, device=self.device)
         lcnt = torch.zeros(1, dtype=torch.float32, device=self.device)
@@ -141,22 +149,15 @@ class FcosLoss(BasicLoss):
 
         tcls, tbox, tcnt, anchs, indices = self.build_targets(preds, targets, image_size)
 
-        n = 0
-
-        for i, pred in enumerate(preds):
+        for i, pi in enumerate(preds):
             # 1：reg_head
             # 2：cnt_head
             # 3：cls_head
-            pi = torch.cat(pred, 1)
-            pi = pi.permute([0, 2, 3, 1]).contiguous()
-
             b, gj, gi = indices[i]
 
             nb = len(b)
 
             tobj = torch.zeros_like(pi[..., 5:])
-
-            n += nb
 
             if nb:
                 ps = pi[b, gj, gi]
@@ -170,16 +171,14 @@ class FcosLoss(BasicLoss):
 
                 giou = iou_loss(pbox, tbox[i], GIoU=True)
 
-                lbox += (1.0 - giou).sum()
+                lbox += (1.0 - giou).mean()
 
-                lcnt += BCE(ps[:, 4], tcnt[i])
+                lcnt += self.BCEcls(ps[:, 4], tcnt[i])
 
-            lcls += sigmoid_focal_loss(pi[..., 5:], tobj, reduction='sum')
+            lcls += sigmoid_focal_loss(pi[..., 5:], tobj, reduction='mean')
 
-        lbox /= n
-        lcnt /= n
-        lcls /= n
+        lbox *= self.hyp["box"]
+        lcnt *= self.hyp["obj"]
+        lcls *= self.hyp["cls"]
 
-        loss = lbox + lcnt + lcls
-
-        return loss, lbox.detach(), lcnt.detach(), lcls.detach()
+        return (lbox + lcnt + lcls) * bs, torch.cat((lbox, lcnt, lcls)).detach()
