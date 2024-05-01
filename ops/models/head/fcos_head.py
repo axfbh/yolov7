@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import math
 from typing import List
-# from utils.anchor_utils import AnchorGenerator
 from utils.anchor_utils import AnchorGenerator
+from torchvision.ops.boxes import box_convert
 
 
 class FCOSRegressionHead(nn.Module):
@@ -86,8 +86,11 @@ class FCOSHead(nn.Module):
                 nn.ModuleList([FCOSClassificationHead(in_channels, num_classes), FCOSRegressionHead(in_channels)])
             )
 
-    def forward(self, x):
+    def forward(self, x, H, W):
         z = []
+        device = x[0].device
+        imgsze = torch.tensor([W, H], device=device)
+        anchors, strides = self.anchors(imgsze, x)
 
         for i in range(self.nl):
             classification_head = self.head[i][0]
@@ -97,6 +100,27 @@ class FCOSHead(nn.Module):
             bs, _, ny, nx = x[i].shape
             x[i] = torch.cat([bbox_regression, bbox_ctrness, cls_logits], 1).permute([0, 2, 3, 1]).contiguous()
             if not self.training:  # inference
-                pass
+                shape = 1, self.na, ny, nx, 2  # grid shape
+
+                anchor = anchors[i].view((1, 1, ny, nx, 2)).expand(shape)
+
+                pxy = 0.5 * (anchor[..., :2] + anchor[..., 2:])
+
+                pwh = anchor[..., 2:] - anchor[..., :2]
+
+                x1y1, x2y2, conf, cls = x[i].split((2, 2, 1, self.num_classes), -1)
+                x1y1 = pxy - (x1y1 * pwh)
+                x2y2 = pxy + (x2y2 * pwh)
+                xywh = box_convert(torch.cat([x1y1, x2y2], -1), in_fmt='xyxy', out_fmt='cxcywh')
+
+                conf, cls = conf.sigmoid(), cls.sigmoid()
+
+                cls_scores, _ = torch.max(cls, dim=-1)
+
+                conf = (conf * cls_scores).sqrt()
+
+                y = torch.cat((xywh, conf, cls), -1)
+
+                z.append(y.view(bs, self.na * nx * ny, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)

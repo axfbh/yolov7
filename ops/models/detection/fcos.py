@@ -26,6 +26,8 @@ class FCOS(nn.Module):
         self.head = FCOSHead([256, 256, 256, 256, 256], anchors, aspect_ratios, num_classes)
 
     def forward(self, x):
+        _, _, H, W = x.size()
+
         fpn_out = self.backbone(x)
 
         p7 = fpn_out['p7']
@@ -34,4 +36,4 @@ class FCOS(nn.Module):
         p4 = fpn_out['1']
         p3 = fpn_out['0']
 
-        return self.head([p3, p4, p5, p6, p7])
+        return self.head([p3, p4, p5, p6, p7], H, W)
