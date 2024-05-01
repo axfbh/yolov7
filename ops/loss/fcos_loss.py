@@ -32,7 +32,9 @@ class FcosLoss(BasicLoss):
     def build_targets(self, p, targets, image_size):
         tcls, tbox, tcnt, indices, anchs = [], [], [], [], []
 
-        targets[:, 2:] = box_convert(targets[:, 2:], in_fmt='cxcywh', out_fmt='xyxy')
+        xyxy = box_convert(targets[:, 2:], in_fmt='cxcywh', out_fmt='xyxy')
+
+        targets = torch.cat([targets[:, :2], xyxy], -1)
 
         anchors, strides = self.anchors(image_size, p)
 

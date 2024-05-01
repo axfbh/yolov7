@@ -120,8 +120,8 @@ class FCOSHead(nn.Module):
 
                 conf = (conf * cls_scores).sqrt()
 
-                y = torch.cat((xywh, conf, cls), -1)
+                y = torch.cat((xywh, conf, cls[..., 1:]), -1)
 
-                z.append(y.view(bs, self.na * nx * ny, self.no))
+                z.append(y.view(bs, self.na * nx * ny, self.no - 1))
 
         return x if self.training else (torch.cat(z, 1), x)
