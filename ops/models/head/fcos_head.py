@@ -109,9 +109,9 @@ class FCOSHead(nn.Module):
 
                 pwh = anchor[..., 2:] - anchor[..., :2]
 
-                x1y1, x2y2, conf, cls = p.split((2, 2, 1, self.num_classes), -1)
-                x1y1 = pxy - (x1y1 * pwh)
-                x2y2 = pxy + (x2y2 * pwh)
+                lt, rb, conf, cls = p.split((2, 2, 1, self.num_classes), -1)
+                x1y1 = pxy - (lt * pwh)
+                x2y2 = pxy + (rb * pwh)
                 xywh = box_convert(torch.cat([x1y1, x2y2], -1), in_fmt='xyxy', out_fmt='cxcywh')
 
                 conf, cls = conf.sigmoid(), cls.sigmoid()
