@@ -5,6 +5,8 @@ from omegaconf import OmegaConf
 from tqdm import tqdm
 
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 import numpy as np
 
@@ -15,12 +17,15 @@ from ops.loss.yolo_loss import YoloLossV7, YoloLossV4, YoloLossV5
 from ops.loss.fcos_loss import FcosLoss
 from ops.metric.DetectionMetric import fitness
 from ops.utils.history_collect import History, AverageMeter
-from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
+from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel, select_device
 from ops.utils.logging import print_args, LOGGER, colorstr
 from ops.utils.lr_warmup import WarmupLR
 import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
+LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable/elastic/run.html
+RANK = int(os.getenv("RANK", -1))
+WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
 
 
 # hyp: hyper parameter
@@ -32,6 +37,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     nb = len(train_loader)  # number of batches
     warmup_iter = max(round(hyp["warmup_epochs"] * nb), 100)
     hyp["weight_decay"] *= batch_size * accumulate / nbs
+    cuda = device.type != "cpu"
 
     # ---------- 梯度优化器 ----------
     optimizer = smart_optimizer(model,
@@ -41,10 +47,10 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                                 hyp['weight_decay'])
 
     # ---------- 梯度缩放器 ----------
-    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    scaler = torch.cuda.amp.GradScaler(enabled=cuda)
 
     # ---------- 模型参数平滑器 ----------
-    ema = ModelEMA(model)
+    ema = ModelEMA(model) if RANK in {-1, 0} else None
 
     # ---------- 模型权重加载器 ----------
     best_fitness, last_iter, last_epoch, start_epoch, end_epoch = smart_resume(model,
@@ -77,6 +83,10 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       best_fitness=best_fitness,
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
+    # DDP mode
+    if cuda and RANK != -1:
+        model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
+
     # criterion = FcosLoss(model)
     criterion = YoloLossV7(model)
 
@@ -85,15 +95,17 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
         mloss = AverageMeter()
 
-        LOGGER.info(
-            ("\n" + "%11s" * 7) %
-            ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr")
-        )
+        pbar = enumerate(train_loader)
 
-        stream = tqdm(train_loader, bar_format=TQDM_BAR_FORMAT)
+        if RANK in {-1, 0}:
+            LOGGER.info(
+                ("\n" + "%11s" * 7) %
+                ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr")
+            )
+            pbar = tqdm(pbar, bar_format=TQDM_BAR_FORMAT)
 
         optimizer.zero_grad()
-        for i, (images, targets, shape) in enumerate(stream):
+        for i, (images, targets, shape) in pbar:
             warmer.step()
 
             images = images.to(device) / 255.
@@ -102,6 +114,9 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
             image_size = torch.as_tensor(shape, device=device)
             loss, loss_items = criterion(preds, targets.to(device), image_size)
+
+            if RANK != -1:
+                loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
 
             scaler.scale(loss).backward()
 
@@ -115,29 +130,28 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                 if ema:
                     ema.update(model)
 
-            mloss += loss_items
-
-            mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
-            lr = optimizer.param_groups[0]['lr']
-            stream.set_description(
-                ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
-                (epoch, mem, f"{shape[0]}x{shape[1]}", *mloss, lr)
-            )
-
-        val_metric = validate.run(val_loader=val_loader,
-                                  names=names,
-                                  model=ema.ema,
-                                  history=history,
-                                  device=device,
-                                  plots=False,
-                                  single_cls=opt.single_cls,
-                                  criterion=criterion)
+            if RANK in {-1, 0}:
+                mloss += loss_items
+                mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+                lr = optimizer.param_groups[0]['lr']
+                pbar.set_description(
+                    ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
+                    (epoch, mem, f"{shape[0]}x{shape[1]}", *mloss, lr)
+                )
 
         scheduler.step()
 
-        fi = fitness(np.array(val_metric).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
-
-        history.save(model, ema, optimizer, epoch, warmer.last_iter, fi)
+        if RANK in {-1, 0}:
+            val_metric = validate.run(val_loader=val_loader,
+                                      names=names,
+                                      model=ema.ema,
+                                      history=history,
+                                      device=device,
+                                      plots=False,
+                                      single_cls=opt.single_cls,
+                                      criterion=criterion)
+            fi = fitness(np.array(val_metric).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+            history.save(model, ema, optimizer, epoch, warmer.last_iter, fi)
 
     torch.cuda.empty_cache()
 
@@ -155,7 +169,7 @@ def parse_opt():
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
-    parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train multi-class data as single-class")
     parser.add_argument("--optimizer",
                         type=str,
@@ -167,6 +181,7 @@ def parse_opt():
                         choices=["Cosine", "MultiStep", "Polynomial", "OneCycleLR"],
                         default="Cosine",
                         help="scheduler")
+    parser.add_argument("--sync-bn", action="store_true", help="use SyncBatchNorm, only available in DDP mode")
     parser.add_argument("--workers", type=int, default=3, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
@@ -181,13 +196,19 @@ def parse_opt():
 
 def main(opt):
     hyp = OmegaConf.load(Path(opt.hyp))
-    LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in hyp.items()))
-
     cfg = OmegaConf.load(Path(opt.cfg))
 
-    train_loader, val_loader, names = get_loader(hyp, opt)
+    if RANK in {-1, 0}:
+        print_args(vars(opt))
+        LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in hyp.items()))
 
-    device = opt.device
+    device = select_device(opt.device, batch_size=opt.batch_size)
+
+    if LOCAL_RANK != -1:
+        torch.cuda.set_device(LOCAL_RANK)
+        device = torch.device("cuda", LOCAL_RANK)
+        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
+
     model = get_model(cfg)
     model.to(device)
 
@@ -200,10 +221,11 @@ def main(opt):
     hyp["label_smoothing"] = opt.label_smoothing
     model.hyp = hyp
 
+    train_loader, val_loader, names = get_loader(hyp, opt)
+
     train(model, train_loader, val_loader, device, hyp, opt, names)
 
 
 if __name__ == '__main__':
     opt = parse_opt()
-    print_args(vars(opt))
     main(opt)
