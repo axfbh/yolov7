@@ -125,7 +125,7 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
     # ------------ resume ema ------------
     ema_param = save_dict.get('ema', None)
 
-    if ema and ema_param is not None:
+    if ema is not None and ema_param is not None:
         ema.ema.load_state_dict(ema_param.state_dict())  # EMA
         ema.updates = save_dict["updates"]
 
