@@ -46,9 +46,6 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
         return self
 
-    def __next__(self):
-        return next(self.avg)
-
     def __getitem__(self, item):
         return self.avg[item]
 
