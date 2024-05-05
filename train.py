@@ -146,9 +146,9 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
     parser.add_argument("--weights", default='./logs/train/exp/weights/last.pt', help="resume most recent training")
-    parser.add_argument("--cfg", type=str, default="./models/fcos-v2.yaml", help="models.yaml path")
+    parser.add_argument("--cfg", type=str, default="./models/yolo-v7-l.yaml", help="models.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
-    parser.add_argument("--hyp", type=str, default="./config/hyp-fcos-v2-low.yaml", help="hyperparameters path")
+    parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v7-low.yaml", help="hyperparameters path")
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")

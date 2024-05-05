@@ -107,7 +107,7 @@ def run(val_loader,
 def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
-    parser.add_argument("--cfg", type=str, default="./models/yolov7l.yaml", help="models.yaml path")
+    parser.add_argument("--cfg", type=str, default="./models/yolo-v7-l.yaml", help="models.yaml path")
     parser.add_argument("--hyp", type=str, default="./config/hyp-yolo-v7-low.yaml", help="hyperparameters path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
