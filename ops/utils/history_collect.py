@@ -1,5 +1,6 @@
 import os
 import yaml
+from functools import singledispatch
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union
@@ -26,6 +27,7 @@ class AverageMeter(object):
         self.reset()
 
     def reset(self):
+        self.is_reset = True
         self.val = 0
         self.avg = 0
         self.sum = 0
@@ -43,6 +45,12 @@ class AverageMeter(object):
         self.count += 1
         self.avg = self.sum / self.count
         return self
+
+    def __next__(self):
+        return next(self.avg)
+
+    def __getitem__(self, item):
+        return self.avg[item]
 
     def __repr__(self):
         return str(self.avg)

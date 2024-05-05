@@ -83,7 +83,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     for epoch in range(start_epoch, end_epoch):
         model.train()
 
-        lbox, lobj, lcls = AverageMeter(), AverageMeter(), AverageMeter()
+        mloss = AverageMeter()
 
         LOGGER.info(
             ("\n" + "%11s" * 7) %
@@ -115,15 +115,13 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                 if ema:
                     ema.update(model)
 
-            lbox += loss_items[0].item()
-            lobj += loss_items[1].item()
-            lcls += loss_items[2].item()
+            mloss += loss_items
 
             mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
             lr = optimizer.param_groups[0]['lr']
             stream.set_description(
                 ("%11i" + "%11s" * 2 + "%11.4g" * 4) %
-                (epoch, mem, f"{shape[0]}x{shape[1]}", lbox, lobj, lcls, lr)
+                (epoch, mem, f"{shape[0]}x{shape[1]}", *mloss, lr)
             )
 
         val_metric = validate.run(val_loader=val_loader,
@@ -156,7 +154,7 @@ def parse_opt():
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
-    parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
+    parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train multi-class data as single-class")
     parser.add_argument("--optimizer",
