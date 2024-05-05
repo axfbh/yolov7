@@ -16,7 +16,7 @@ from ops.loss.fcos_loss import FcosLoss
 from ops.metric.DetectionMetric import fitness
 from ops.utils.history_collect import History, AverageMeter
 from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel
-from ops.utils.logging import print_args, LOGGER
+from ops.utils.logging import print_args, LOGGER, colorstr
 from ops.utils.lr_warmup import WarmupLR
 import val as validate  # for end-of-epoch mAP
 
@@ -30,7 +30,8 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)
     nb = len(train_loader)  # number of batches
-    warmup_iter = hyp['warmup_epochs'] * nb
+    warmup_iter = max(round(hyp["warmup_epochs"] * nb), 100)
+    hyp["weight_decay"] *= batch_size * accumulate / nbs
 
     # ---------- 梯度优化器 ----------
     optimizer = smart_optimizer(model,
@@ -76,7 +77,8 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       best_fitness=best_fitness,
                       yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
-    criterion = FcosLoss(model)
+    # criterion = FcosLoss(model)
+    criterion = YoloLossV7(model)
 
     for epoch in range(start_epoch, end_epoch):
         model.train()
@@ -152,9 +154,9 @@ def parse_opt():
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=8, help="total batch size for all GPUs")
-    parser.add_argument("--image-size", type=list, default=[800, 1333], help="train, val image size (pixels)")
-    parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
+    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
+    parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
+    parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--device", default="cuda", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train multi-class data as single-class")
     parser.add_argument("--optimizer",
@@ -181,6 +183,8 @@ def parse_opt():
 
 def main(opt):
     hyp = OmegaConf.load(Path(opt.hyp))
+    LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in hyp.items()))
+
     cfg = OmegaConf.load(Path(opt.cfg))
 
     train_loader, val_loader, names = get_loader(hyp, opt)
