@@ -3,7 +3,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, distributed
 
 import numpy as np
 
@@ -15,8 +15,19 @@ from ops.dataset.utils import detect_collate_fn
 import ops.cv.io as io
 from ops.transform.resize_maker import ResizeLongestPaddingShort, ResizeShortLongest
 from ops.utils.logging import LOGGER, colorstr
+from ops.utils.torch_utils import torch_distributed_zero_first
+import random
 
-np.random.seed(0)
+LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable/elastic/run.html
+RANK = int(os.getenv("RANK", -1))
+PIN_MEMORY = str(os.getenv("PIN_MEMORY", True)).lower() == "true"  # global pin_memory for dataloaders
+
+
+def seed_worker(worker_id):
+    # Set dataloader worker seed https://pytorch.org/docs/stable/notes/randomness.html#dataloader
+    worker_seed = torch.initial_seed() % 2 ** 32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 class MyDataSet(VOCDetection):
@@ -32,7 +43,14 @@ class MyDataSet(VOCDetection):
 
         # io.visualize(resize_sample['image'], resize_sample['bbox_params'], classes, self.id2name)
 
-        sample = self.transform(image=resize_sample['image'], bboxes=resize_sample['bbox_params'], classes=classes)
+        if self.augment:
+            sample = self.transform(image=resize_sample['image'], bboxes=resize_sample['bbox_params'], classes=classes)
+        else:
+            sample = {
+                'image': resize_sample['image'],
+                'bboxes': resize_sample['bbox_params'],
+                'classes': classes
+            }
 
         image = ToTensorV2()(image=sample['image'])['image'].float()
         bbox_params = torch.FloatTensor(sample['bboxes'])
@@ -59,8 +77,18 @@ class MyDataSet(VOCDetection):
         return image, target
 
 
-def get_loader(hyp, opt):
-    train_transform = A.Compose([
+def create_dataloader(path,
+                      image_size,
+                      batch_size,
+                      names,
+                      image_set=None,
+                      hyp=None,
+                      augment=False,
+                      local_rank=-1,
+                      workers=3,
+                      shuffle=False,
+                      seed=0):
+    transform = A.Compose([
         A.Affine(scale={"x": (1 - hyp.scale, 1 + hyp.scale),
                         "y": (1 - hyp.scale, 1 + hyp.scale)},
                  translate_percent={"x": (0.5 - hyp.translate, 0.5 + hyp.translate),
@@ -75,40 +103,31 @@ def get_loader(hyp, opt):
         A.HorizontalFlip(p=hyp.fliplr),
         A.VerticalFlip(p=hyp.flipud),
     ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
-    LOGGER.info(f"{colorstr('albumentations: ')}" + ", ".join(
-        f"{x}".replace("always_apply=False, ", "") for x in train_transform if x.p))
 
-    val_transform = A.Compose([
-    ], A.BboxParams(format='pascal_voc', label_fields=['classes']))
+    if augment:
+        LOGGER.info(f"{colorstr('albumentations: ')}" + ", ".join(
+            f"{x}".replace("always_apply=False, ", "") for x in transform if x.p))
 
-    data = OmegaConf.load(Path(opt.data))
+    dataset = MyDataSet(path,
+                        image_set=image_set,
+                        image_size=image_size,
+                        class_name=names,
+                        augment=augment,
+                        transform=transform if augment else None)
 
-    train_dataset = MyDataSet(Path(data.train),
-                              image_set='car_train',
-                              image_size=opt.image_size,
-                              class_name=data.names,
-                              transform=train_transform)
+    batch_size = min(batch_size, len(dataset))
+    nd = torch.cuda.device_count()  # number of CUDA devices
+    nw = min([os.cpu_count() // max(nd, 1), batch_size if batch_size > 1 else 0, workers])  # number of workers
+    sampler = None if local_rank == -1 else distributed.DistributedSampler(dataset, shuffle=shuffle)
+    generator = torch.Generator()
+    generator.manual_seed(6148914691236517205 + seed + RANK)
 
-    val_dataset = MyDataSet(Path(data.val),
-                            image_set='car_val',
-                            image_size=opt.image_size,
-                            class_name=data.names,
-                            transform=val_transform)
-
-    train_loader = DataLoader(dataset=train_dataset,
-                              batch_size=opt.batch_size,
-                              shuffle=False,
-                              collate_fn=detect_collate_fn,
-                              persistent_workers=True,
-                              num_workers=opt.workers,
-                              drop_last=True)
-
-    val_loader = DataLoader(dataset=val_dataset,
-                            batch_size=opt.batch_size,
-                            shuffle=False,
-                            collate_fn=detect_collate_fn,
-                            persistent_workers=True,
-                            num_workers=opt.workers,
-                            drop_last=True)
-
-    return train_loader, val_loader, data.names
+    return DataLoader(dataset=dataset,
+                      batch_size=batch_size,
+                      shuffle=shuffle and sampler is None,
+                      num_workers=nw,
+                      sampler=sampler,
+                      pin_memory=PIN_MEMORY,
+                      collate_fn=detect_collate_fn,
+                      worker_init_fn=seed_worker,
+                      generator=generator)

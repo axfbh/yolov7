@@ -12,7 +12,7 @@ from ops.metric.DetectionMetric import process_batch, ap_per_class
 
 from models.modeling import get_model
 from utils.nms import non_max_suppression
-from dataloader import get_loader
+from dataloader import create_dataloader
 
 from ops.utils.logging import print_args, LOGGER
 from ops.utils.history_collect import History
@@ -107,12 +107,12 @@ def run(val_loader,
 def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
-    parser.add_argument("--cfg", type=str, default="./models/yolo-v7-l.yaml", help="models.yaml path")
-    parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v7-low.yaml", help="hyperparameters path")
+    parser.add_argument("--cfg", type=str, default="./models/yolo-v4-v5-l.yaml", help="models.yaml path")
+    parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v5-low.yaml", help="hyperparameters path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
 
     # -------------- 参数值 --------------
-    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp1/weights/best.pt",
+    parser.add_argument("--weights", nargs="+", type=str, default="./logs/train/exp/weights/best.pt",
                         help="models path(s)")
     parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")

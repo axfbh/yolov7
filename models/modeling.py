@@ -7,9 +7,6 @@ from ops.models.detection.fcos import FCOS
 
 
 def get_model(cfg):
-    return YoloV7(anchors=cfg.anchors, num_classes=cfg.nc, phi='l')
-    # return YoloV5(anchors=cfg.anchors,
-    #               num_classes=cfg.nc,
-    #               depth_multiple=cfg.depth_multiple,
-    #               width_multiple=cfg.width_multiple)
+    # return YoloV7(anchors=cfg.anchors, num_classes=cfg.nc, phi='l')
+    return YoloV5(cfg.anchors, cfg.nc, depth_multiple=cfg.depth_multiple, width_multiple=cfg.width_multiple)
     # return FCOS(num_classes=cfg.nc, anchors=cfg.anchors, aspect_ratios=cfg.aspect_ratios)

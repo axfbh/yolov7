@@ -123,13 +123,13 @@ class Focus(nn.Module):
 class CSPDarknetV2(nn.Module):
     def __init__(self, base_channels, base_depth):
         super(CSPDarknetV2, self).__init__()
-
-        DownSampleLayer = partial(CBM, kernel_size=3, stride=2)
-
         # -----------------------------------------------#
         #   输入图片是640, 640, 3
         #   初始的基本通道是64
         # -----------------------------------------------#
+
+        CBM.keywords['activation_layer'] = nn.SiLU
+        DownSampleLayer = partial(CBM, kernel_size=3, stride=2)
 
         # -----------------------------------------------#
         #   利用focus网络结构进行特征提取

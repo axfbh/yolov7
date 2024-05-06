@@ -7,20 +7,22 @@ from tqdm import tqdm
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.multiprocessing as mp
 
 import numpy as np
 
 from models.modeling import get_model
-from dataloader import get_loader
+from dataloader import create_dataloader
+import val as validate  # for end-of-epoch mAP
 
 from ops.loss.yolo_loss import YoloLossV7, YoloLossV4, YoloLossV5
 from ops.loss.fcos_loss import FcosLoss
 from ops.metric.DetectionMetric import fitness
 from ops.utils.history_collect import History, AverageMeter
-from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel, select_device
+from ops.utils.torch_utils import smart_optimizer, smart_resume, smart_scheduler, ModelEMA, de_parallel, select_device, \
+    init_seeds
 from ops.utils.logging import print_args, LOGGER, colorstr
 from ops.utils.lr_warmup import WarmupLR
-import val as validate  # for end-of-epoch mAP
 
 TQDM_BAR_FORMAT = "{l_bar}{bar:10}{r_bar}"  # tqdm bar format
 LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable/elastic/run.html
@@ -76,14 +78,16 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                       warmup_momentum=hyp['warmup_momentum'])
 
     # ---------- 记录工具 ----------
-    history = History(project_dir=Path(opt.project),
-                      name=opt.name,
-                      mode='train',
-                      save_period=opt.save_period,
-                      best_fitness=best_fitness,
-                      yaml_args={'hyp': hyp, 'opt': vars(opt)})
+    if RANK in {-1, 0}:
+        history = History(project_dir=Path(opt.project),
+                          name=opt.name,
+                          mode='train',
+                          save_period=opt.save_period,
+                          best_fitness=best_fitness,
+                          yaml_args={'hyp': hyp, 'opt': vars(opt)})
 
-    # DDP mode
+    # DDP mode，
+    # torch.distributed.run 启动
     if cuda and RANK != -1:
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
 
@@ -95,6 +99,9 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
         mloss = AverageMeter()
 
+        if RANK != -1:
+            train_loader.sampler.set_epoch(epoch)
+
         pbar = enumerate(train_loader)
 
         if RANK in {-1, 0}:
@@ -102,7 +109,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
                 ("\n" + "%11s" * 7) %
                 ("Epoch", "GPU_mem", "Size", "box_loss", "obj_loss", "cls_loss", "lr")
             )
-            pbar = tqdm(pbar, bar_format=TQDM_BAR_FORMAT)
+            pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)
 
         optimizer.zero_grad()
         for i, (images, targets, shape) in pbar:
@@ -160,15 +167,15 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
     parser.add_argument("--weights", default='./logs/train/exp/weights/last.pt', help="resume most recent training")
-    parser.add_argument("--cfg", type=str, default="./models/yolo-v7-l.yaml", help="models.yaml path")
+    parser.add_argument("--cfg", type=str, default="./models/yolo-v4-v5-l.yaml", help="models.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
-    parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v7-low.yaml", help="hyperparameters path")
+    parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v5-low.yaml", help="hyperparameters path")
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs")
+    parser.add_argument("--batch-size", type=int, default=3, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
-    parser.add_argument("--resume", nargs="?", const=True, default=True, help="resume most recent training")
+    parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train multi-class data as single-class")
     parser.add_argument("--optimizer",
@@ -182,21 +189,23 @@ def parse_opt():
                         default="Cosine",
                         help="scheduler")
     parser.add_argument("--sync-bn", action="store_true", help="use SyncBatchNorm, only available in DDP mode")
-    parser.add_argument("--workers", type=int, default=3, help="max dataloader workers (per RANK in DDP mode)")
+    parser.add_argument("--workers", type=int, default=1, help="max dataloader workers (per RANK in DDP mode)")
     parser.add_argument("--project", default="./logs", help="save to project/name")
     parser.add_argument("--name", default="exp", help="save to project/name")
     parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
     parser.add_argument("--save-period", type=int, default=5,
                         help="Save checkpoint every x epochs (disabled if < 1)")
+    parser.add_argument("--seed", type=int, default=0, help="Global training seed")
     parser.add_argument("--local_rank", type=int, default=-1,
                         help="Automatic DDP Multi-GPU argument, do not modify")
 
     return parser.parse_args()
 
 
-def main(opt):
+def main(rank, world_size, opt):
     hyp = OmegaConf.load(Path(opt.hyp))
     cfg = OmegaConf.load(Path(opt.cfg))
+    data = OmegaConf.load(Path(opt.data))
 
     if RANK in {-1, 0}:
         print_args(vars(opt))
@@ -207,7 +216,9 @@ def main(opt):
     if LOCAL_RANK != -1:
         torch.cuda.set_device(LOCAL_RANK)
         device = torch.device("cuda", LOCAL_RANK)
-        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
+        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo",
+                                rank=rank,
+                                world_size=world_size)
 
     model = get_model(cfg)
     model.to(device)
@@ -221,11 +232,69 @@ def main(opt):
     hyp["label_smoothing"] = opt.label_smoothing
     model.hyp = hyp
 
-    train_loader, val_loader, names = get_loader(hyp, opt)
+    init_seeds(opt.seed + 1 + RANK)
+
+    names = data.names
+
+    train_loader = create_dataloader(Path(data.train),
+                                     opt.image_size,
+                                     opt.batch_size // WORLD_SIZE,
+                                     names,
+                                     hyp=hyp,
+                                     image_set='car_train',
+                                     augment=True,
+                                     local_rank=LOCAL_RANK,
+                                     workers=opt.workers,
+                                     shuffle=True,
+                                     seed=opt.seed)
+
+    if RANK in {-1, 0}:
+        val_loader = create_dataloader(Path(data.val),
+                                       opt.image_size,
+                                       opt.batch_size // WORLD_SIZE * 2,
+                                       data.names,
+                                       hyp=hyp,
+                                       image_set='car_val',
+                                       augment=False,
+                                       local_rank=LOCAL_RANK,
+                                       workers=opt.workers,
+                                       shuffle=True,
+                                       seed=opt.seed)
+    else:
+        val_loader = None
 
     train(model, train_loader, val_loader, device, hyp, opt, names)
 
 
+def init_process(local_rank, node_rank, local_size, world_size, opt, fn):
+    global LOCAL_RANK, RANK, WORLD_SIZE
+    rank = local_rank + node_rank * local_size
+
+    os.environ['MASTER_ADDR'] = '192.168.2.66'
+    os.environ['MASTER_PORT'] = '12345'
+    os.environ['LOCAL_RANK'] = str(local_size)
+    os.environ['RANK'] = str(rank)
+    os.environ['WORLD_SIZE'] = str(world_size)
+    LOCAL_RANK = local_rank
+    RANK = rank
+    WORLD_SIZE = world_size
+
+    fn(rank, world_size, opt)
+
+
 if __name__ == '__main__':
+    # 总共 GPU 数量
+    world_size = 1
+
+    # 当前 机器 GPU 数量
+    nproc_per_node = 1
+
+    # 当前 机器 ID
+    node_rank = 0
+
     opt = parse_opt()
-    main(opt)
+    mp.spawn(init_process,
+             args=(node_rank, nproc_per_node, world_size, opt, main),
+             nprocs=nproc_per_node,
+             join=True)
+    # main(opt)

@@ -10,8 +10,6 @@ class YoloV5(nn.Module):
     def __init__(self, anchors, num_classes, depth_multiple, width_multiple):
         super(YoloV5, self).__init__()
 
-
-
         base_channels = int(width_multiple * 64)  # 64
         base_depth = max(round(depth_multiple * 3), 1)  # 3
         # -----------------------------------------------#

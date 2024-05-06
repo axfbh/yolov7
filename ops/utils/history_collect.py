@@ -15,10 +15,6 @@ from ops.utils import threaded
 from ops.utils.plots import Annotator
 from ops.utils.torch_utils import de_parallel
 
-LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable/elastic/run.html
-RANK = int(os.getenv("RANK", -1))
-WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
-
 
 def yaml_save(file: Union[str, Path] = "data.yaml", data={}):
     # Single-line safe yaml saving
@@ -68,32 +64,31 @@ class History:
                  save_period=-1,
                  best_fitness=None,
                  yaml_args: Dict = None):
-        if RANK in {-1, 0}:
-            project_dir = project_dir.joinpath(mode)
-            # ------------- 根据 时间创建文件夹 ---------------
-            if not project_dir.exists():
-                project_dir.mkdir()
+        project_dir = project_dir.joinpath(mode)
+        # ------------- 根据 时间创建文件夹 ---------------
+        if not project_dir.exists():
+            project_dir.mkdir()
 
-            i = 0
-            while True:
-                exp_dir = project_dir.joinpath(name + str(i) if i else name + '')
-                if not exp_dir.exists():
-                    exp_dir.mkdir()
-                    if mode == 'train':
-                        weight_dir = exp_dir.joinpath('weights')
-                        weight_dir.mkdir()
-                        self.weight_dir = weight_dir
-                    break
-                i += 1
+        i = 0
+        while True:
+            exp_dir = project_dir.joinpath(name + str(i) if i else name + '')
+            if not exp_dir.exists():
+                exp_dir.mkdir()
+                if mode == 'train':
+                    weight_dir = exp_dir.joinpath('weights')
+                    weight_dir.mkdir()
+                    self.weight_dir = weight_dir
+                break
+            i += 1
 
-            if yaml_args is not None:
-                for k, v in yaml_args.items():
-                    yaml_save(exp_dir.joinpath(f"{k}.yaml"), v)
+        if yaml_args is not None:
+            for k, v in yaml_args.items():
+                yaml_save(exp_dir.joinpath(f"{k}.yaml"), v)
 
-            self.exp_dir = exp_dir
-            self.best_fitness = best_fitness
-            self.save_period = save_period
-            self.save_id = 1
+        self.exp_dir = exp_dir
+        self.best_fitness = best_fitness
+        self.save_period = save_period
+        self.save_id = 1
 
     @threaded
     def save(self, model, ema, optimizer, epoch: int, last_iter: int, fitness: float):

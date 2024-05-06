@@ -1,14 +1,19 @@
 import os
 import math
 import platform
+import random
+
+import numpy as np
 
 from copy import deepcopy
 from pathlib import Path
+from contextlib import contextmanager
 
 import torch
 import torch.nn as nn
 from torch.nn.parameter import is_lazy
 from torchvision.ops.boxes import box_convert
+import torch.distributed as dist
 
 from ops.utils.logging import LOGGER, colorstr
 
@@ -186,6 +191,25 @@ def smart_resume(model, optimizer, ema=None, epochs=300, resume=False, save_path
         )
 
     return best_fitness, last_iter, last_epoch, start_epoch, epochs
+
+
+@contextmanager
+def torch_distributed_zero_first(local_rank: int):
+    # Decorator to make all processes in distributed training wait for each local_master to do something
+    if local_rank not in [-1, 0]:
+        dist.barrier()
+    yield
+    if local_rank == 0:
+        dist.barrier()
+
+
+def init_seeds(seed=0):
+    # Initialize random number generator (RNG) seeds https://pytorch.org/docs/stable/notes/randomness.html
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # for Multi-GPU, exception safe
 
 
 def is_parallel(model):
