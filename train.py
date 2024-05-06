@@ -88,6 +88,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
 
     # DDP mode，
     # torch.distributed.run 启动
+    # mp.spawn 启动
     if cuda and RANK != -1:
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
 
