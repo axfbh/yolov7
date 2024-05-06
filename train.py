@@ -92,7 +92,7 @@ def train(model, train_loader, val_loader, device, hyp, opt, names):
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
 
     # criterion = FcosLoss(model)
-    criterion = YoloLossV7(model)
+    criterion = YoloLossV5(model)
 
     for epoch in range(start_epoch, end_epoch):
         model.train()
@@ -167,13 +167,13 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # -------------- 参数文件 --------------
     parser.add_argument("--weights", default='./logs/train/exp/weights/last.pt', help="resume most recent training")
-    parser.add_argument("--cfg", type=str, default="./models/yolo-v4-v5-l.yaml", help="models.yaml path")
+    parser.add_argument("--cfg", type=str, default="./models/yolo-v4-v5-m.yaml", help="models.yaml path")
     parser.add_argument("--data", type=str, default="./data/voc.yaml", help="dataset.yaml path")
     parser.add_argument("--hyp", type=str, default="./data/hyp/hyp-yolo-v5-low.yaml", help="hyperparameters path")
 
     # -------------- 参数值 --------------
     parser.add_argument("--epochs", type=int, default=300, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=3, help="total batch size for all GPUs")
+    parser.add_argument("--batch-size", type=int, default=4, help="total batch size for all GPUs")
     parser.add_argument("--image-size", type=list, default=[640, 640], help="train, val image size (pixels)")
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
@@ -248,20 +248,17 @@ def main(rank, world_size, opt):
                                      shuffle=True,
                                      seed=opt.seed)
 
-    if RANK in {-1, 0}:
-        val_loader = create_dataloader(Path(data.val),
-                                       opt.image_size,
-                                       opt.batch_size // WORLD_SIZE * 2,
-                                       data.names,
-                                       hyp=hyp,
-                                       image_set='car_val',
-                                       augment=False,
-                                       local_rank=LOCAL_RANK,
-                                       workers=opt.workers,
-                                       shuffle=True,
-                                       seed=opt.seed)
-    else:
-        val_loader = None
+    val_loader = create_dataloader(Path(data.val),
+                                   opt.image_size,
+                                   opt.batch_size // WORLD_SIZE * 2,
+                                   data.names,
+                                   hyp=hyp,
+                                   image_set='car_val',
+                                   augment=False,
+                                   local_rank=LOCAL_RANK,
+                                   workers=opt.workers,
+                                   shuffle=True,
+                                   seed=opt.seed) if RANK in {-1, 0} else None
 
     train(model, train_loader, val_loader, device, hyp, opt, names)
 
@@ -285,7 +282,7 @@ def init_process(local_rank, node_rank, local_size, world_size, fn):
 
 if __name__ == '__main__':
     # 总共 GPU 数量
-    world_size = 1
+    world_size = 2
 
     # 当前 机器 GPU 数量
     nproc_per_node = 1

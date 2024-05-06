@@ -108,12 +108,13 @@ def create_dataloader(path,
         LOGGER.info(f"{colorstr('albumentations: ')}" + ", ".join(
             f"{x}".replace("always_apply=False, ", "") for x in transform if x.p))
 
-    dataset = MyDataSet(path,
-                        image_set=image_set,
-                        image_size=image_size,
-                        class_name=names,
-                        augment=augment,
-                        transform=transform if augment else None)
+    with torch_distributed_zero_first(local_rank):  # init dataset *.cache only once if DDP
+        dataset = MyDataSet(path,
+                            image_set=image_set,
+                            image_size=image_size,
+                            class_name=names,
+                            augment=augment,
+                            transform=transform if augment else None)
 
     batch_size = min(batch_size, len(dataset))
     nd = torch.cuda.device_count()  # number of CUDA devices
