@@ -255,7 +255,6 @@ def main(rank, world_size, opt):
                                    hyp=hyp,
                                    image_set='car_val',
                                    augment=False,
-                                   local_rank=LOCAL_RANK,
                                    workers=opt.workers,
                                    shuffle=True,
                                    seed=opt.seed) if RANK in {-1, 0} else None
