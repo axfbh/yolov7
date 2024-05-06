@@ -266,7 +266,7 @@ def main(rank, world_size, opt):
     train(model, train_loader, val_loader, device, hyp, opt, names)
 
 
-def init_process(local_rank, node_rank, local_size, world_size, opt, fn):
+def init_process(local_rank, node_rank, local_size, world_size, fn):
     global LOCAL_RANK, RANK, WORLD_SIZE
     rank = local_rank + node_rank * local_size
 
@@ -279,6 +279,7 @@ def init_process(local_rank, node_rank, local_size, world_size, opt, fn):
     RANK = rank
     WORLD_SIZE = world_size
 
+    opt = parse_opt()
     fn(rank, world_size, opt)
 
 
@@ -292,9 +293,7 @@ if __name__ == '__main__':
     # 当前 机器 ID
     node_rank = 0
 
-    opt = parse_opt()
     mp.spawn(init_process,
-             args=(node_rank, nproc_per_node, world_size, opt, main),
+             args=(node_rank, nproc_per_node, world_size, main),
              nprocs=nproc_per_node,
              join=True)
-    # main(opt)
